@@ -11,6 +11,9 @@ on:
         required: true
         default: master
         type: string
+  push:
+    branches:
+      - master
 
 jobs:
   build:
@@ -21,7 +24,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.target_ref }}
+          ref: ${{ inputs.target_ref || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
