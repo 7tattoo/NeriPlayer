@@ -21,11 +21,11 @@ val allowUnsignedRelease =
     (project.findProperty("allowUnsignedRelease") as String?)?.toBoolean() == true ||
         isGithubPullRequest ||
         isIdeBuild
-val releaseKeystorePath = project.findProperty("KEYSTORE_FILE") as String? ?: "neri.jks"
+val releaseKeystorePath = project.findProperty("KEYSTORE_FILE") as String? ?: "joox-release.keystore"
 val releaseKeystoreFile = project.file(releaseKeystorePath)
-val releaseStorePassword = project.findProperty("KEYSTORE_PASSWORD") as String?
-val releaseKeyAlias = project.findProperty("KEY_ALIAS") as String? ?: "key0"
-val releaseKeyPassword = project.findProperty("KEY_PASSWORD") as String?
+val releaseStorePassword = project.findProperty("KEYSTORE_PASSWORD") as String? ?: "joox-car-2026"
+val releaseKeyAlias = project.findProperty("KEY_ALIAS") as String? ?: "joox-car"
+val releaseKeyPassword = project.findProperty("KEY_PASSWORD") as String? ?: "joox-car-2026"
 val releaseSigningReady = releaseKeystoreFile.exists() &&
     !releaseStorePassword.isNullOrBlank() &&
     releaseKeyAlias.isNotBlank() &&

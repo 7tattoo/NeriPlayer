@@ -215,6 +215,7 @@ private data class PlaybackMetadataSnapshot(
     val durationMs: Long,
     val coverSource: String?,
     val largeIconReady: Boolean,
+    val carLyricWhole: String?,
 )
 
 private data class PendingStartCommand(
@@ -2404,6 +2405,14 @@ class AudioPlayerService : Service() {
             payload = lyricPayload,
             useBluetoothLyrics = useBluetoothLyrics
         )
+        val isSongMatch = song != null && PlayerManager.externalBluetoothLyricsSongKey == song.stableKey()
+        val carLyrics = if (isSongMatch) PlayerManager.externalBluetoothLyrics else emptyList()
+        val currentCarLyricWhole = if (PlayerManager.carLyricEnabled) {
+            buildCarLyricWhole(carLyrics)
+        } else {
+            ""
+        }
+
         val snapshot = PlaybackMetadataSnapshot(
             songKey = songKey,
             title = metadataText.title,
@@ -2415,6 +2424,7 @@ class AudioPlayerService : Service() {
             durationMs = duration,
             coverSource = currentCoverSource,
             largeIconReady = currentMediaArtwork != null,
+            carLyricWhole = currentCarLyricWhole,
         )
         if (snapshot == lastMetadataSnapshot) {
             return
@@ -2477,18 +2487,22 @@ class AudioPlayerService : Service() {
             return
         }
 
-        val carLyrics = PlayerManager.externalBluetoothLyrics
+        val isSongMatch = song != null && PlayerManager.externalBluetoothLyricsSongKey == song.stableKey()
+        val carLyrics = if (isSongMatch) PlayerManager.externalBluetoothLyrics else emptyList()
         val wholeLrc = buildCarLyricWhole(carLyrics)
-        val status = if (hasValidLyricContent(carLyrics)) {
+        val status = if (isSongMatch && hasValidLyricContent(carLyrics)) {
             LYRIC_STATUS_HAS_LYRIC
         } else {
             LYRIC_STATUS_NO_LYRIC
         }
-        val safeLine = lyricLine
-            ?: resolveCarLyricLine(
+        val safeLine = if (isSongMatch) {
+            lyricLine ?: resolveCarLyricLine(
                 lyrics = carLyrics,
                 positionMs = PlayerManager.playbackPositionFlow.value
             )
+        } else {
+            ""
+        }
 
         // 无歌词时写空串（勿写 -1），与车机协议约定一致
         metadataBuilder
