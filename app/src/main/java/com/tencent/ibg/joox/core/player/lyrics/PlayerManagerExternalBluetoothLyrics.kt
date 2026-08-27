@@ -46,7 +46,8 @@ internal fun PlayerManager.syncExternalBluetoothLyrics(song: SongItem?) {
 
         externalBluetoothLyricsSongKey = songKey
         externalBluetoothLyrics = lyrics
-        updateExternalBluetoothLyricLine(_playbackPositionMs.value)
+        updateExternalBluetoothLyricLine(_playbackPositionMs.value, forceNotify = true)
+        
         if (shouldProvideExternalTranslatedLyricLine()) {
             startExternalBluetoothTranslationLoad(song, songKey)
         }
@@ -133,7 +134,10 @@ private suspend fun PlayerManager.loadExternalTranslatedLyrics(song: SongItem): 
     }
 }
 
-internal fun PlayerManager.updateExternalBluetoothLyricLine(positionMs: Long) {
+internal fun PlayerManager.updateExternalBluetoothLyricLine(
+    positionMs: Long,
+    forceNotify: Boolean = false
+) {
     if (!shouldProvideExternalLyricLine()) {
         clearExternalBluetoothLyricLine()
         return
@@ -177,7 +181,9 @@ internal fun PlayerManager.updateExternalBluetoothLyricLine(positionMs: Long) {
         lyricLine = line,
         translationLine = translatedLine
     )
-    if (_externalBluetoothLyricPayloadFlow.value != payload) {
+    // 正常情况下只在 payload 变化时才更新，但歌词加载完成时需要强制通知
+    // 以确保车载卡片能获取到最新的 LYRICS_WHOLE（完整歌词）
+    if (_externalBluetoothLyricPayloadFlow.value != payload || forceNotify) {
         _externalBluetoothLyricPayloadFlow.value = payload
     }
 }
