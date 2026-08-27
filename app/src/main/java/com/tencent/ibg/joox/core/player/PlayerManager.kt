@@ -602,6 +602,13 @@ object PlayerManager {
     internal val externalBluetoothLyricPayloadFlow: StateFlow<ExternalBluetoothLyricPayload> =
         _externalBluetoothLyricPayloadFlow
 
+    // 车载歌词内容版本号：歌词列表每次变化（清空/加载完成/翻译完成）时自增。
+    // AudioPlayerService 监听此 flow 触发 updateMetadata()，确保车载端能及时收到最新歌词。
+    // 不能依赖 externalBluetoothLyricPayloadFlow：纯车载模式下（仅 carLyricEnabled 开启）
+    // payload 恒为 ExternalBluetoothLyricPayload()（lyric 为 null），MutableStateFlow 同值不 emit。
+    internal val _carLyricContentEpochFlow = MutableStateFlow(0L)
+    internal val carLyricContentEpochFlow: StateFlow<Long> = _carLyricContentEpochFlow
+
     internal val _playerEventFlow = MutableSharedFlow<PlayerEvent>()
     val playerEventFlow: SharedFlow<PlayerEvent> = _playerEventFlow.asSharedFlow()
 

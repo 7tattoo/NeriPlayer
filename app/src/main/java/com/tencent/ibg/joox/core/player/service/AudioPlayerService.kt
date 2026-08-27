@@ -1496,6 +1496,15 @@ class AudioPlayerService : Service() {
             }
         }
         serviceScope.launch {
+            // 车载歌词内容版本号：歌词清空/加载完成时触发，确保车载端及时收到歌词推送。
+            // （externalBluetoothLyricPayloadFlow 在纯车载模式下 payload 恒为空，同值不 emit）
+            PlayerManager.carLyricContentEpochFlow.collectSafely(
+                "carLyricContentEpochFlow"
+            ) {
+                updateMetadata()
+            }
+        }
+        serviceScope.launch {
             PlayerManager.currentAudioDeviceFlow.collectSafely("currentAudioDeviceFlow") {
                 updateMetadata()
             }

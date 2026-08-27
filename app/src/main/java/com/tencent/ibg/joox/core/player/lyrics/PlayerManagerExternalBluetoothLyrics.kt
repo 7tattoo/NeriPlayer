@@ -28,6 +28,8 @@ internal fun PlayerManager.syncExternalBluetoothLyrics(song: SongItem?) {
     floatingTranslationMatchesByIndex = emptyMap()
     externalBluetoothLyricsSongKey = song?.stableKey()
     clearExternalBluetoothLyricLine()
+    // 歌词已清空，通知 AudioPlayerService 更新车载歌词（推空，避免残留上一首）
+    _carLyricContentEpochFlow.value += 1
 
     if (!shouldProvideExternalLyricLine() || song == null) {
         return
@@ -47,7 +49,9 @@ internal fun PlayerManager.syncExternalBluetoothLyrics(song: SongItem?) {
         externalBluetoothLyricsSongKey = songKey
         externalBluetoothLyrics = lyrics
         updateExternalBluetoothLyricLine(_playbackPositionMs.value, forceNotify = true)
-        
+        // 歌词加载完成，通知 AudioPlayerService 更新车载歌词（推送完整 LRC）
+        _carLyricContentEpochFlow.value += 1
+
         if (shouldProvideExternalTranslatedLyricLine()) {
             startExternalBluetoothTranslationLoad(song, songKey)
         }
@@ -101,6 +105,8 @@ private fun PlayerManager.startExternalBluetoothTranslationLoad(
             translations = translatedLyrics.filter { it.text.isNotBlank() }
         )
         updateExternalBluetoothLyricLine(_playbackPositionMs.value)
+        // 翻译歌词就绪，同样通知一次（车载端可能展示翻译行）
+        _carLyricContentEpochFlow.value += 1
     }
 }
 
