@@ -1,19 +1,10 @@
-name: Joox Car Release (v8a)
-
-# 自定义 release：仅构建 arm64-v8a，支持未签名（allowUnsignedRelease），
-# 产物上传为 artifact，供本地下载安装。
+name: Joox Car Release v8a
 
 on:
-  workflow_dispatch:
-    inputs:
-      target_ref:
-        description: Branch, tag, or commit SHA to release
-        required: true
-        default: master
-        type: string
   push:
     branches:
       - master
+  workflow_dispatch:
 
 jobs:
   build:
@@ -24,7 +15,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.target_ref || github.ref }}
           fetch-depth: 0
           submodules: recursive
 
@@ -38,26 +28,8 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
 
-      - name: Build signed Release APK (v8a) if keystore present
-        id: signed
-        if: ${{ secrets.KEYSTORE_B64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_PASSWORD != '' }}
-        run: |
-          mkdir -p app
-          echo "$KEYSTORE_B64" | base64 -d > app/neri.jks
-          ./gradlew :app:assembleRelease \
-            -PKEYSTORE_FILE=neri.jks \
-            -PKEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} \
-            -PKEY_ALIAS=key0 \
-            -PKEY_PASSWORD=${{ secrets.KEY_PASSWORD }} \
-            --warning-mode all --stacktrace
-        env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
-
       - name: Build unsigned Release APK (v8a)
-        if: steps.signed.outcome != 'success'
-        run: |
-          ./gradlew :app:assembleRelease -PallowUnsignedRelease=true \
-            --warning-mode all --stacktrace
+        run: ./gradlew :app:assembleRelease -PallowUnsignedRelease=true --warning-mode all --stacktrace
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
