@@ -1,5 +1,7 @@
 package com.tencent.ibg.joox.core.player.metadata
 
+import com.tencent.ibg.joox.ui.component.lyrics.LyricEntry
+
 /**
  * 车载歌词键常量 — vivo 智能车联协议
  *
