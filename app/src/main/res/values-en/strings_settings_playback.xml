@@ -62,6 +62,8 @@
     <string name="settings_external_bluetooth_translation_enabled_desc">Send the current translation independently; with original lyrics enabled, title and artist fields carry separate lines</string>
     <string name="settings_dynamic_island_lyrics_enabled">Dynamic Island Lyrics</string>
     <string name="settings_dynamic_island_lyrics_enabled_desc">When enabled, Bluetooth lyric metadata is uploaded even without a connected Bluetooth device</string>
+    <string name="settings_car_lyric_enabled">Car Cast Lyrics (vivo CarLink)</string>
+    <string name="settings_car_lyric_enabled_desc">Push full LRC and current-line lyrics to vivo CarLink/car screen. When enabled, the car lyric channel takes priority and Dynamic Island lyrics yield during car connection to avoid conflicts</string>
     <string name="settings_dynamic_island_lyrics_dependency_title">Bluetooth lyrics required</string>
     <string name="settings_dynamic_island_lyrics_dependency_message">Dynamic Island Lyrics requires Bluetooth original lyrics. Turn them on automatically?</string>
     <string name="settings_lyrics_offset">Lyrics Settings</string>

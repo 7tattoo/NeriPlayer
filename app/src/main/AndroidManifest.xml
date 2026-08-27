@@ -113,7 +113,7 @@
             android:process=":netease_login"
         >
             <intent-filter>
-                <action android:name="moe.ouom.neriplayer.action.CLEAR_WEBVIEW_LOGIN_STATE" />
+                <action android:name="com.tencent.ibg.joox.action.CLEAR_WEBVIEW_LOGIN_STATE" />
             </intent-filter>
         </receiver>
         <activity
@@ -134,7 +134,7 @@
             android:process=":bili_web_login"
         >
             <intent-filter>
-                <action android:name="moe.ouom.neriplayer.action.CLEAR_WEBVIEW_LOGIN_STATE" />
+                <action android:name="com.tencent.ibg.joox.action.CLEAR_WEBVIEW_LOGIN_STATE" />
             </intent-filter>
         </receiver>
         <activity
@@ -149,11 +149,11 @@
             android:process=":youtube_web_login"
         >
             <intent-filter>
-                <action android:name="moe.ouom.neriplayer.action.CLEAR_WEBVIEW_LOGIN_STATE" />
+                <action android:name="com.tencent.ibg.joox.action.CLEAR_WEBVIEW_LOGIN_STATE" />
             </intent-filter>
         </receiver>
         <service
-            android:name="moe.ouom.neriplayer.core.player.service.AudioPlayerService"
+            android:name="com.tencent.ibg.joox.core.player.service.AudioPlayerService"
             android:exported="false"
             android:stopWithTask="false"
             android:foregroundServiceType="mediaPlayback">

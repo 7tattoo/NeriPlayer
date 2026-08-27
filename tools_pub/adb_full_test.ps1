@@ -10,11 +10,11 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-$packageName = "moe.ouom.neriplayer"
-$mainActivity = "moe.ouom.neriplayer.activity.MainActivity"
+$packageName = "com.tencent.ibg.joox"
+$mainActivity = "com.tencent.ibg.joox.activity.MainActivity"
 $receiverComponent = "$packageName/.testing.DebugCookieImportReceiver"
 $instrumentationRunner = "$packageName.test/androidx.test.runner.AndroidJUnitRunner"
-$permissionBootstrapClass = "moe.ouom.neriplayer.testing.PermissionBootstrapTest"
+$permissionBootstrapClass = "com.tencent.ibg.joox.testing.PermissionBootstrapTest"
 $reportDir = Join-Path $repoRoot ".report"
 $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $reportPath = Join-Path $reportDir "adb-$BuildVariant-perf-$timestamp.json"
@@ -154,7 +154,7 @@ function Import-Cookies {
     $cookieBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($cookie))
     $output = Invoke-Adb -Args @(
         "shell", "am", "broadcast",
-        "-a", "moe.ouom.neriplayer.debug.IMPORT_AUTH",
+        "-a", "com.tencent.ibg.joox.debug.IMPORT_AUTH",
         "-n", $receiverComponent,
         "--es", "platform", $Platform,
         "--es", "cookie_base64", $cookieBase64
@@ -320,7 +320,7 @@ $imports = @()
 if ($BuildVariant -eq "debug") {
     Invoke-Adb -Args @(
         "shell", "am", "broadcast",
-        "-a", "moe.ouom.neriplayer.debug.CLEAR_AUTH",
+        "-a", "com.tencent.ibg.joox.debug.CLEAR_AUTH",
         "-n", $receiverComponent,
         "--es", "platform", "all"
     ) | Out-Null

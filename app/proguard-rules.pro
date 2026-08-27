@@ -22,15 +22,15 @@
 -keepclassmembers class * {
     @com.google.gson.annotations.SerializedName <fields>;
 }
--keepclassmembers,allowoptimization class moe.ouom.neriplayer.data.** {
+-keepclassmembers,allowoptimization class com.tencent.ibg.joox.data.** {
     <fields>;
     <init>(...);
 }
--keepclassmembers,allowoptimization class moe.ouom.neriplayer.core.player.model.** {
+-keepclassmembers,allowoptimization class com.tencent.ibg.joox.core.player.model.** {
     <fields>;
     <init>(...);
 }
--keepclassmembers,allowoptimization class moe.ouom.neriplayer.ui.viewmodel.tab.** {
+-keepclassmembers,allowoptimization class com.tencent.ibg.joox.ui.viewmodel.tab.** {
     <fields>;
     <init>(...);
 }
@@ -50,7 +50,7 @@
 }
 
 # 当前 JNI 还是静态绑定，桥接类名和 native 方法名都得稳定
--keepclasseswithmembernames,includedescriptorclasses class moe.ouom.neriplayer.** {
+-keepclasseswithmembernames,includedescriptorclasses class com.tencent.ibg.joox.** {
     native <methods>;
 }
 

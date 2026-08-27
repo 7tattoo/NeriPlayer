@@ -1,13 +1,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application>
         <provider
-            android:name="moe.ouom.neriplayer.data.local.media.StagedMetadataTestProvider"
-            android:authorities="moe.ouom.neriplayer.test.stagedmetadataprovider"
+            android:name="com.tencent.ibg.joox.data.local.media.StagedMetadataTestProvider"
+            android:authorities="com.tencent.ibg.joox.test.stagedmetadataprovider"
             android:exported="true"
             android:grantUriPermissions="true" />
         <provider
-            android:name="moe.ouom.neriplayer.data.local.media.Issue339LyricsTestDocumentProvider"
-            android:authorities="moe.ouom.neriplayer.test.issue339lyrics"
+            android:name="com.tencent.ibg.joox.data.local.media.Issue339LyricsTestDocumentProvider"
+            android:authorities="com.tencent.ibg.joox.test.issue339lyrics"
             android:exported="true"
             android:grantUriPermissions="true" />
     </application>

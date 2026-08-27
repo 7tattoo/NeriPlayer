@@ -1,0 +1,1510 @@
+package com.tencent.ibg.joox.activity
+
+/*
+ * NeriPlayer - A unified Android player for streaming music and videos from multiple online platforms.
+ * Copyright (C) 2025-2025 NeriPlayer developers
+ * https://github.com/cwuom/NeriPlayer
+ *
+ * This software is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software.
+ * If not, see <https://www.gnu.org/licenses/>.
+ *
+ * File: com.tencent.ibg.joox.activity/MainActivity
+ * Created: 2025/8/8
+ */
+
+
+import android.annotation.SuppressLint
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
+import androidx.activity.compose.LocalActivityResultRegistryOwner
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.LocalOverscrollFactory
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.tencent.ibg.joox.ui.component.overlay.DensityScaledAlertDialog as AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.Text
+import androidx.compose.material3.Typography
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.toColorInt
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.tencent.ibg.joox.NeriPlayerApplication
+import com.tencent.ibg.joox.R
+import com.tencent.ibg.joox.core.di.AppContainer
+import com.tencent.ibg.joox.core.download.GlobalDownloadManager
+import com.tencent.ibg.joox.core.player.PlayerManager
+import com.tencent.ibg.joox.core.player.model.PlayerEvent
+import com.tencent.ibg.joox.core.player.policy.usb.UsbExclusiveLoudPlaybackRisk
+import com.tencent.ibg.joox.core.player.policy.usb.UsbExclusiveLoudnessPeakSource
+import com.tencent.ibg.joox.core.player.policy.usb.UsbExclusiveOutputDeviceClass
+import com.tencent.ibg.joox.core.player.service.AudioPlayerService
+import com.tencent.ibg.joox.core.player.service.canUseDirectPlaybackServiceStart
+import com.tencent.ibg.joox.core.startup.StartupStage
+import com.tencent.ibg.joox.core.startup.StartupStageResolver
+import com.tencent.ibg.joox.core.startup.crash.StartupCrashReportManager
+import com.tencent.ibg.joox.core.startup.download.StartupDownloadRecoveryCoordinator
+import com.tencent.ibg.joox.core.startup.logging.StartupLogInitializer
+import com.tencent.ibg.joox.core.startup.safemode.SafeModeRecoveryCoordinator
+import com.tencent.ibg.joox.data.local.audioimport.LocalAudioImportManager
+import com.tencent.ibg.joox.data.local.media.LocalMediaSupport
+import com.tencent.ibg.joox.data.settings.SettingsRepository
+import com.tencent.ibg.joox.data.settings.readBootstrapSettingsSnapshotSync
+import com.tencent.ibg.joox.core.startup.sync.StartupSyncScheduler
+import com.tencent.ibg.joox.core.startup.sync.StartupSyncWarningCoordinator
+import com.tencent.ibg.joox.core.startup.sync.StartupSyncWarningRepository
+import com.tencent.ibg.joox.core.startup.theme.StartupNightModeSyncPlanner
+import com.tencent.ibg.joox.core.startup.theme.StartupResourceNightMode
+import com.tencent.ibg.joox.core.startup.theme.StartupThemeResolver
+import com.tencent.ibg.joox.core.startup.theme.StartupThemeSnapshotProvider
+import com.tencent.ibg.joox.listentogether.invite.ListenTogetherInvite
+import com.tencent.ibg.joox.listentogether.validation.normalizeListenTogetherRoomId
+import com.tencent.ibg.joox.listentogether.invite.parseListenTogetherInvite
+import com.tencent.ibg.joox.listentogether.invite.resolveListenTogetherInviteJoinBaseUrl
+import com.tencent.ibg.joox.navigation.LauncherShortcutRequest
+import com.tencent.ibg.joox.navigation.launcherShortcutActionFromIntentAction
+import com.tencent.ibg.joox.ui.MobileDataDownloadInterruptionDialog
+import com.tencent.ibg.joox.ui.NeriApp
+import com.tencent.ibg.joox.ui.component.overlay.LocalOverlaySurfaceScale
+import com.tencent.ibg.joox.ui.effect.glass.AdvancedGlassOverscrollFactory
+import com.tencent.ibg.joox.ui.feedback.AppFeedback
+import com.tencent.ibg.joox.ui.util.ClipboardCopyResult
+import com.tencent.ibg.joox.ui.util.copyPlainTextSafely
+import com.tencent.ibg.joox.ui.onboarding.StartupOnboardingScreen
+import com.tencent.ibg.joox.ui.screen.safemode.SafeModeScreen
+import com.tencent.ibg.joox.ui.theme.rememberActualSystemDarkTheme
+import com.tencent.ibg.joox.util.crash.CrashReportStore
+import com.tencent.ibg.joox.core.crash.ExceptionHandler
+import com.tencent.ibg.joox.ui.haptic.HapticTextButton
+import com.tencent.ibg.joox.util.platform.LanguageManager
+import com.tencent.ibg.joox.core.logging.NPLogger
+import com.tencent.ibg.joox.util.platform.NightModeHelper
+import com.tencent.ibg.joox.core.startup.safemode.SafeModeManager
+import com.tencent.ibg.joox.util.platform.lockPortraitIfPhone
+import com.tencent.ibg.joox.util.platform.applyOnePlusHighDensityDisplayCorrection
+import com.tencent.ibg.joox.util.platform.applyPreferredHighRefreshRate
+import com.tencent.ibg.joox.util.platform.resolveOnePlusHighDensityUiScale
+
+private data class PendingAudioServiceStart(
+    val requestToken: Long,
+    val source: String,
+    val forceForeground: Boolean
+)
+
+internal fun shouldUseLightSystemBarIcons(
+    isDarkTheme: Boolean,
+    isNowPlayingVisible: Boolean
+): Boolean = isDarkTheme || isNowPlayingVisible
+
+@Composable
+private fun GitHubSyncWarningDialog(
+    onConfirm: () -> Unit,
+    onDismissReminder: () -> Unit
+) {
+    var countdown by remember { mutableIntStateOf(3) }
+    LaunchedEffect(Unit) {
+        while (countdown > 0) {
+            delay(1000)
+            countdown--
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onConfirm,
+        title = { Text(stringResource(R.string.github_sync_warning_title)) },
+        text = { Text(stringResource(R.string.github_sync_warning_message)) },
+        confirmButton = {
+            HapticTextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.action_confirm))
+            }
+        },
+        dismissButton = {
+            HapticTextButton(
+                onClick = onDismissReminder,
+                enabled = countdown == 0
+            ) {
+                Text(
+                    if (countdown > 0) {
+                        stringResource(R.string.github_sync_no_remind_countdown, countdown)
+                    } else {
+                        stringResource(R.string.github_sync_no_remind)
+                    }
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun AppUiDensityRoot(
+    userScale: Float,
+    content: @Composable () -> Unit
+) {
+    val baseContext = LocalContext.current
+    val baseDensity = LocalDensity.current
+    val scaledDensity = remember(baseDensity, userScale) {
+        Density(
+            density = baseDensity.density * userScale,
+            fontScale = baseDensity.fontScale
+        )
+    }
+    val uncorrectedDensityDpi = baseContext.applicationContext.resources
+        .displayMetrics.densityDpi
+    val surfaceScale = remember(userScale, uncorrectedDensityDpi) {
+        resolveOnePlusHighDensityUiScale(
+            userScale = userScale,
+            manufacturer = Build.MANUFACTURER,
+            brand = Build.BRAND,
+            densityDpi = uncorrectedDensityDpi
+        )
+    }
+
+    CompositionLocalProvider(
+        LocalDensity provides scaledDensity,
+        LocalOverlaySurfaceScale provides surfaceScale,
+        content = content
+    )
+}
+
+@Composable
+private fun LocalizedAppContent(
+    language: LanguageManager.Language,
+    content: @Composable () -> Unit
+) {
+    val baseContext = LocalContext.current
+    val localizedContext = remember(baseContext, language) {
+        LanguageManager.localizedContext(baseContext, language)
+    }
+    CompositionLocalProvider(
+        LocalContext provides localizedContext,
+        LocalConfiguration provides localizedContext.resources.configuration,
+        content = content
+    )
+}
+
+private fun MainActivity.setNeriContent(
+    content: @Composable () -> Unit
+) {
+    setContent {
+        CompositionLocalProvider(
+            LocalActivityResultRegistryOwner provides this@setNeriContent,
+            LocalOverscrollFactory provides AdvancedGlassOverscrollFactory,
+            content = content
+        )
+    }
+}
+
+class MainActivity : ComponentActivity() {
+    private val settingsRepository by lazy { SettingsRepository(applicationContext) }
+    private val startupCrashReportManager by lazy { StartupCrashReportManager(applicationContext) }
+    private var externalAudioImportJob: Job? = null
+    private var externalAudioMetadataHydrationJob: Job? = null
+    private var externalAudioRequestToken = 0L
+    private var pendingExternalAudioServiceStart: PendingAudioServiceStart? = null
+    private var launcherShortcutRequestToken = 0L
+    private val pendingLauncherShortcutRequest =
+        MutableStateFlow<LauncherShortcutRequest?>(null)
+    private val launcherShortcutRequestFlow = pendingLauncherShortcutRequest.asStateFlow()
+    private val pendingListenTogetherInvite = MutableStateFlow<ListenTogetherInvite?>(null)
+    private val listenTogetherInviteFlow = pendingListenTogetherInvite.asStateFlow()
+    private val listenTogetherStatusMessage = MutableStateFlow<String?>(null)
+    private val listenTogetherStatusFlow = listenTogetherStatusMessage.asStateFlow()
+    private val startupSyncWarningCoordinator by lazy {
+        StartupSyncWarningCoordinator(
+            StartupSyncWarningRepository(applicationContext)
+        )
+    }
+    private var safeModeActive = false
+
+    override fun attachBaseContext(newBase: Context) {
+        val localizedContext = LanguageManager.applyLanguage(newBase)
+        super.attachBaseContext(applyOnePlusHighDensityDisplayCorrection(localizedContext))
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        safeModeActive = SafeModeManager.shouldEnterSafeMode(this)
+        val startupSettingsSnapshot = readBootstrapSettingsSnapshotSync(this)
+        val startupThemeSnapshot = StartupThemeSnapshotProvider.read(
+            context = this,
+            safeModeActive = safeModeActive
+        )
+        NightModeHelper.applyNightMode(
+            followSystemDark = startupThemeSnapshot.followSystemDark,
+            forceDark = startupThemeSnapshot.forceDark
+        )
+        installSplashScreen()
+        super.onCreate(savedInstanceState)
+        applyPreferredHighRefreshRate(startupSettingsSnapshot.preferHighRefreshRate)
+        observePreferredHighRefreshRate()
+        lockPortraitIfPhone()
+        enableEdgeToEdge()
+        applyWindowBackground(
+            StartupThemeResolver.resolveSnapshotUseDark(
+                snapshot = startupThemeSnapshot,
+                systemDark = StartupResourceNightMode.isDark(resources.configuration.uiMode)
+            )
+        )
+
+        if (safeModeActive) {
+            setNeriContent {
+                val uiDensityScale by settingsRepository.uiDensityScaleFlow
+                    .collectAsStateWithLifecycle(initialValue = 1.0f)
+                AppUiDensityRoot(uiDensityScale) {
+                    val systemDark = rememberActualSystemDarkTheme()
+                    val useDark = remember(systemDark) {
+                        StartupThemeResolver.resolveSnapshotUseDark(
+                            snapshot = startupThemeSnapshot,
+                            systemDark = systemDark
+                        )
+                    }
+                    NeriTheme(useDark = useDark, useDynamic = false) {
+                        SideEffect {
+                            val controller = WindowInsetsControllerCompat(window, window.decorView)
+                            controller.isAppearanceLightStatusBars = !useDark
+                            controller.isAppearanceLightNavigationBars = !useDark
+                        }
+                        SafeModeScreen(
+                            onRestoreNormal = ::restoreFromSafeMode
+                        )
+                    }
+                }
+            }
+            return
+        }
+
+        setNeriContent {
+            var selectedAppLanguage by remember {
+                mutableStateOf(LanguageManager.getCurrentLanguage(this@MainActivity))
+            }
+            val uiDensityScale by settingsRepository.uiDensityScaleFlow
+                .collectAsStateWithLifecycle(initialValue = 1.0f)
+            AppUiDensityRoot(uiDensityScale) {
+                LocalizedAppContent(language = selectedAppLanguage) {
+                val devModeEnabled by settingsRepository.devModeEnabledFlow.collectAsStateWithLifecycle(initialValue = false)
+                val alwaysRecordLogsEnabled by settingsRepository.alwaysRecordLogsEnabledFlow.collectAsStateWithLifecycle(
+                    initialValue = false
+                )
+                LaunchedEffect(devModeEnabled, alwaysRecordLogsEnabled) {
+                    StartupLogInitializer.sync(
+                        context = this@MainActivity,
+                        devModeEnabled = devModeEnabled,
+                        alwaysRecordLogsEnabled = alwaysRecordLogsEnabled
+                    )
+                }
+
+            val dynamicColor by settingsRepository.dynamicColorFlow.collectAsStateWithLifecycle(
+                initialValue = startupThemeSnapshot.dynamicColor
+            )
+            val forceDark by settingsRepository.forceDarkFlow.collectAsStateWithLifecycle(
+                initialValue = startupThemeSnapshot.forceDark
+            )
+            val followSystemDark by settingsRepository.followSystemDarkFlow.collectAsStateWithLifecycle(
+                initialValue = startupThemeSnapshot.followSystemDark
+            )
+            val disclaimerAccepted by settingsRepository.disclaimerAcceptedFlow
+                .collectAsStateWithLifecycle(initialValue = null)
+            val startupOnboardingCompleted by settingsRepository.startupOnboardingCompletedFlow
+                .collectAsStateWithLifecycle(initialValue = null)
+            var pendingDisclaimerAccepted by rememberSaveable {
+                mutableStateOf(false)
+            }
+            LaunchedEffect(disclaimerAccepted) {
+                if (disclaimerAccepted == true) {
+                    pendingDisclaimerAccepted = false
+                }
+            }
+
+            val systemDark = rememberActualSystemDarkTheme()
+            val currentResourceDark = StartupResourceNightMode.isDark(resources.configuration.uiMode)
+            val nightModeSyncPlan = remember(forceDark, followSystemDark, systemDark, currentResourceDark) {
+                StartupNightModeSyncPlanner.plan(
+                    forceDark = forceDark,
+                    followSystemDark = followSystemDark,
+                    systemDark = systemDark,
+                    currentResourceDark = currentResourceDark
+                )
+            }
+            val useDark = nightModeSyncPlan.useDark
+            var isNowPlayingVisible by remember { mutableStateOf(false) }
+            val useLightSystemBarIcons = shouldUseLightSystemBarIcons(
+                isDarkTheme = useDark,
+                isNowPlayingVisible = isNowPlayingVisible
+            )
+            LaunchedEffect(followSystemDark, forceDark, nightModeSyncPlan) {
+                if (nightModeSyncPlan.shouldApplyNightMode) {
+                    NightModeHelper.applyNightMode(
+                        followSystemDark = followSystemDark,
+                        forceDark = forceDark
+                    )
+                }
+            }
+
+            NeriTheme(useDark = useDark, useDynamic = dynamicColor) {
+                        val startupScope = rememberCoroutineScope()
+                        val clipboardManager = remember {
+                            getSystemService(ClipboardManager::class.java)
+                        }
+                        var pendingStartupCrashReport by remember {
+                            mutableStateOf<CrashReportStore.PendingCrashReport?>(null)
+                        }
+                        val exportCrashReportLauncher = rememberLauncherForActivityResult(
+                            contract = ActivityResultContracts.CreateDocument("text/plain")
+                        ) { uri: Uri? ->
+                            val report = pendingStartupCrashReport ?: return@rememberLauncherForActivityResult
+                            uri ?: return@rememberLauncherForActivityResult
+                            startupScope.launch(Dispatchers.IO) {
+                                runCatching {
+                                    startupCrashReportManager.exportReport(
+                                        reportFile = report.file,
+                                        destination = uri
+                                    )
+                                }.onSuccess {
+                                    withContext(Dispatchers.Main) {
+                                        AppFeedback.show(
+                                            context = this@MainActivity,
+                                            message = getString(R.string.log_exported)
+                                        )
+                                    }
+                                }.onFailure { error ->
+                                    withContext(Dispatchers.Main) {
+                                        AppFeedback.show(
+                                            context = this@MainActivity,
+                                            message = getString(R.string.log_export_failed, error.message),
+                                            duration = SnackbarDuration.Long
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        LaunchedEffect(Unit) {
+                            pendingStartupCrashReport = startupCrashReportManager.readPendingReport()
+                        }
+                        LaunchedEffect(Unit) {
+                            handleIncomingIntent(intent)
+                        }
+                        SideEffect {
+                            val controller = WindowInsetsControllerCompat(window, window.decorView)
+                            controller.isAppearanceLightStatusBars = !useLightSystemBarIcons
+                            controller.isAppearanceLightNavigationBars = !useLightSystemBarIcons
+                        }
+
+                // 入场动画状态
+                var playedEntrance by rememberSaveable { mutableStateOf(false) }
+                LaunchedEffect(Unit) { playedEntrance = true }
+
+                val stage = remember(
+                    disclaimerAccepted,
+                    startupOnboardingCompleted,
+                    pendingDisclaimerAccepted
+                ) {
+                    StartupStageResolver.resolve(
+                        disclaimerAccepted = disclaimerAccepted,
+                        startupOnboardingCompleted = startupOnboardingCompleted,
+                        pendingDisclaimerAccepted = pendingDisclaimerAccepted
+                    )
+                }
+                var hasDisplayedDisclaimer by rememberSaveable { mutableStateOf(false) }
+                var previousStartupStage by remember { mutableStateOf<StartupStage?>(null) }
+                LaunchedEffect(stage) {
+                    if (stage == StartupStage.Disclaimer) {
+                        hasDisplayedDisclaimer = true
+                    }
+                    previousStartupStage = stage
+                }
+                val pendingMobileDataDownloadInterruptionRequest by
+                    GlobalDownloadManager.mobileDataDownloadInterruptionRequest.collectAsStateWithLifecycle()
+                val rootLifecycleOwner = LocalLifecycleOwner.current
+                var hasShownTokenWarning by rememberSaveable { mutableStateOf(false) }
+                var showTokenWarningDialog by rememberSaveable { mutableStateOf(false) }
+                LaunchedEffect(stage, rootLifecycleOwner.lifecycle) {
+                    if (stage != StartupStage.Main) {
+                        return@LaunchedEffect
+                    }
+                    StartupDownloadRecoveryCoordinator(
+                        context = this@MainActivity,
+                        awaitResumed = {
+                            while (!rootLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                                delay(100L)
+                            }
+                        }
+                    ).requestWhenMainReady()
+                }
+                LaunchedEffect(stage, rootLifecycleOwner.lifecycle) {
+                    if (stage != StartupStage.Main) {
+                        return@LaunchedEffect
+                    }
+                    delay(STARTUP_STAGE_CONTENT_DELAY_MILLIS)
+                    rootLifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                        val warningResult = startupSyncWarningCoordinator.check(hasShownTokenWarning)
+                        hasShownTokenWarning = warningResult.hasShownWarning
+
+                        if (warningResult.showWarning) {
+                            NPLogger.d("MainActivity", "显示 GitHub 配置警告")
+                            showTokenWarningDialog = true
+                        }
+                    }
+                }
+
+                AnimatedContent(
+                    targetState = stage,
+                    transitionSpec = {
+                        val enter = fadeIn(
+                            animationSpec = tween(420, easing = FastOutSlowInEasing)
+                        ) + scaleIn(
+                            initialScale = 0.97f,
+                            animationSpec = tween(560, easing = FastOutSlowInEasing)
+                        ) + slideInVertically(
+                            animationSpec = tween(
+                                durationMillis = STARTUP_STAGE_ENTER_DURATION_MILLIS,
+                                easing = FastOutSlowInEasing
+                            ),
+                            initialOffsetY = { fullHeight ->
+                                if (playedEntrance) fullHeight / 7 else fullHeight / 16
+                            }
+                        )
+
+                        val exit = fadeOut(
+                            animationSpec = tween(300, easing = FastOutSlowInEasing)
+                        ) + scaleOut(
+                            targetScale = 1.015f,
+                            animationSpec = tween(420, easing = FastOutSlowInEasing)
+                        ) + slideOutVertically(
+                            animationSpec = tween(durationMillis = 420, easing = FastOutSlowInEasing),
+                            targetOffsetY = { -it / 14 }
+                        )
+
+                        enter togetherWith exit using SizeTransform(clip = false)
+                    },
+                    label = "AppStageTransition"
+                ) { current ->
+                    StartupStageContentGate(
+                        stage = current,
+                        previousStage = previousStartupStage,
+                        disclaimerWasShown = hasDisplayedDisclaimer || pendingDisclaimerAccepted
+                    ) {
+                    when (current) {
+                        StartupStage.Loading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .statusBarsPadding()
+                                    .navigationBarsPadding()
+                            )
+                        }
+                        StartupStage.Disclaimer -> {
+                            val scope = rememberCoroutineScope()
+                            DisclaimerScreen(
+                                onAgree = {
+                                    pendingDisclaimerAccepted = true
+                                    scope.launch {
+                                        runCatching {
+                                            settingsRepository.setDisclaimerAccepted(true)
+                                        }.onFailure { error ->
+                                            pendingDisclaimerAccepted = false
+                                            NPLogger.e(
+                                                "MainActivity",
+                                                "accept disclaimer failed",
+                                                error
+                                            )
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        StartupStage.Onboarding -> {
+                            StartupOnboardingScreen(
+                                onLanguageChanged = { selectedAppLanguage = it }
+                            )
+                        }
+                        StartupStage.Main -> {
+                            // 弹窗状态管理和事件监听
+                            var showDialog by remember { mutableStateOf(false) }
+                            var dialogMessage by remember { mutableStateOf("") }
+                            var showErrorDialog by remember { mutableStateOf(false) }
+                            var errorTitle by remember { mutableStateOf("") }
+                            var errorMessage by remember { mutableStateOf("") }
+                            val lifecycleOwner = LocalLifecycleOwner.current
+                            val scope = rememberCoroutineScope()
+                            val loudPlaybackConfirmation by PlayerManager
+                                .usbExclusiveLoudPlaybackConfirmationFlow
+                                .collectAsStateWithLifecycle()
+                            var joiningInvite by remember { mutableStateOf(false) }
+                            val pendingInvite by listenTogetherInviteFlow.collectAsStateWithLifecycle()
+                            val listenTogetherStatus by listenTogetherStatusFlow.collectAsStateWithLifecycle()
+                            val listenTogetherSessionState by AppContainer.listenTogetherSessionManager.sessionState
+                                .collectAsStateWithLifecycle()
+                            val listenTogetherRoomState by AppContainer.listenTogetherSessionManager.roomState
+                                .collectAsStateWithLifecycle()
+                            val isListenTogetherRoomActive = !listenTogetherSessionState.roomId.isNullOrBlank()
+                            var hadActiveListenTogetherRoom by rememberSaveable { mutableStateOf(false) }
+                            var lastShownListenTogetherNotice by rememberSaveable { mutableStateOf<String?>(null) }
+                            val effectiveListenTogetherStatus = when {
+                                joiningInvite -> getString(R.string.listen_together_status_joining)
+                                !listenTogetherStatus.isNullOrBlank() -> listenTogetherStatus
+                                isListenTogetherRoomActive &&
+                                    listenTogetherSessionState.connectionState == com.tencent.ibg.joox.listentogether.protocol.ListenTogetherConnectionState.CONNECTING ->
+                                    getString(R.string.listen_together_status_syncing)
+                                isListenTogetherRoomActive -> getString(R.string.listen_together_status_active)
+                                else -> null
+                            }
+                            val showLeaveListenTogetherAction = isListenTogetherRoomActive &&
+                                shouldOfferListenTogetherLeaveAction(dialogMessage)
+
+                            // 初始化异常处理器事件监听
+                            LaunchedEffect(Unit) {
+                                ExceptionHandler.errorEvents.collect { event ->
+                                    errorTitle = event.title
+                                    errorMessage = event.message
+                                    showErrorDialog = true
+                                }
+                            }
+
+                            LaunchedEffect(lifecycleOwner.lifecycle) {
+                                lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                                    PlayerManager.playerEventFlow.collect { event ->
+                                        when (event) {
+                                            is PlayerEvent.ShowLoginPrompt -> {
+                                                dialogMessage = event.message
+                                                showDialog = true
+                                            }
+
+                                            is PlayerEvent.ShowError -> {
+                                                dialogMessage = event.message
+                                                showDialog = true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            LaunchedEffect(
+                                listenTogetherSessionState.roomId,
+                                listenTogetherSessionState.connectionState
+                            ) {
+                                updateListenTogetherStatus(
+                                    when {
+                                        listenTogetherSessionState.roomId.isNullOrBlank() -> null
+                                        listenTogetherSessionState.connectionState == com.tencent.ibg.joox.listentogether.protocol.ListenTogetherConnectionState.CONNECTING ->
+                                            getString(R.string.listen_together_status_syncing)
+                                        else -> getString(R.string.listen_together_status_active)
+                                    }
+                                )
+                            }
+
+                            LaunchedEffect(isListenTogetherRoomActive) {
+                                when {
+                                    isListenTogetherRoomActive -> hadActiveListenTogetherRoom = true
+                                    hadActiveListenTogetherRoom -> {
+                                        clearListenTogetherInviteCache()
+                                        hadActiveListenTogetherRoom = false
+                                    }
+                                }
+                            }
+
+                            LaunchedEffect(effectiveListenTogetherStatus) {
+                                effectiveListenTogetherStatus?.let(::showListenTogetherStatusFeedback)
+                            }
+
+                            LaunchedEffect(
+                                listenTogetherSessionState.roomNotice,
+                                listenTogetherRoomState?.version
+                            ) {
+                                val notice = listenTogetherSessionState.roomNotice ?: return@LaunchedEffect
+                                val displayNotice = notice.toListenTogetherDisplayMessage()
+                                if (displayNotice.isBlank()) {
+                                    return@LaunchedEffect
+                                }
+                                val noticeKey = "${listenTogetherRoomState?.version ?: -1L}:$notice"
+                                if (lastShownListenTogetherNotice == noticeKey) {
+                                    return@LaunchedEffect
+                                }
+                                lastShownListenTogetherNotice = noticeKey
+                                showListenTogetherStatusFeedback(displayNotice)
+                            }
+
+                            loudPlaybackConfirmation?.let { confirmation ->
+                                val rawDeviceName = confirmation.deviceName
+                                    .takeIf(String::isNotBlank)
+                                    ?: stringResource(R.string.player_loud_volume_device_unknown)
+                                val deviceLabel = when (confirmation.deviceClass) {
+                                    UsbExclusiveOutputDeviceClass.Uac1 -> stringResource(
+                                        R.string.player_loud_volume_device_uac1,
+                                        rawDeviceName
+                                    )
+                                    UsbExclusiveOutputDeviceClass.Uac2 -> stringResource(
+                                        R.string.player_loud_volume_device_uac2,
+                                        rawDeviceName
+                                    )
+                                    UsbExclusiveOutputDeviceClass.Unknown -> stringResource(
+                                        R.string.player_loud_volume_device_unknown_usb,
+                                        rawDeviceName
+                                    )
+                                }
+                                val riskLabel = when (confirmation.risk) {
+                                    UsbExclusiveLoudPlaybackRisk.Elevated -> stringResource(
+                                        R.string.player_loud_volume_risk_elevated
+                                    )
+                                    UsbExclusiveLoudPlaybackRisk.High -> stringResource(
+                                        R.string.player_loud_volume_risk_high
+                                    )
+                                    UsbExclusiveLoudPlaybackRisk.Critical -> stringResource(
+                                        R.string.player_loud_volume_risk_critical
+                                    )
+                                    UsbExclusiveLoudPlaybackRisk.None -> stringResource(
+                                        R.string.player_loud_volume_risk_elevated
+                                    )
+                                }
+                                val warningMessage = when (confirmation.peakSource) {
+                                    UsbExclusiveLoudnessPeakSource.RecentSample -> stringResource(
+                                        R.string.player_loud_volume_warning_message_observed,
+                                        deviceLabel,
+                                        confirmation.systemVolumePercent,
+                                        confirmation.estimatedPeakDbfs,
+                                        confirmation.riskThresholdDbfs,
+                                        riskLabel
+                                    )
+                                    UsbExclusiveLoudnessPeakSource.VolumeCeiling -> stringResource(
+                                        R.string.player_loud_volume_warning_message_ceiling,
+                                        deviceLabel,
+                                        confirmation.systemVolumePercent,
+                                        confirmation.estimatedPeakDbfs,
+                                        confirmation.riskThresholdDbfs,
+                                        riskLabel
+                                    )
+                                }
+                                AlertDialog(
+                                    onDismissRequest = {
+                                        PlayerManager.cancelUsbExclusiveLoudPlayback(
+                                            confirmation.id
+                                        )
+                                    },
+                                    title = {
+                                        Text(
+                                            stringResource(
+                                                R.string.player_loud_volume_warning_title
+                                            )
+                                        )
+                                    },
+                                    text = {
+                                        Column(
+                                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            Text(warningMessage)
+                                            Text(
+                                                stringResource(
+                                                    R.string.player_loud_volume_warning_calibration
+                                                ),
+                                                style = MaterialTheme.typography.bodySmall
+                                            )
+                                        }
+                                    },
+                                    confirmButton = {
+                                        HapticTextButton(
+                                            onClick = {
+                                                PlayerManager.confirmUsbExclusiveLoudPlayback(
+                                                    confirmation.id
+                                                )
+                                            }
+                                        ) {
+                                            Text(stringResource(R.string.player_continue))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        HapticTextButton(
+                                            onClick = {
+                                                PlayerManager.cancelUsbExclusiveLoudPlayback(
+                                                    confirmation.id
+                                                )
+                                            }
+                                        ) {
+                                            Text(stringResource(R.string.action_cancel))
+                                        }
+                                    }
+                                )
+                            }
+
+                            if (showDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showDialog = false },
+                                    title = { Text(stringResource(R.string.dialog_hint)) },
+                                    text = { Text(dialogMessage) },
+                                    confirmButton = {
+                                        HapticTextButton(onClick = { showDialog = false }) {
+                                            Text(stringResource(R.string.action_confirm))
+                                        }
+                                    },
+                                    dismissButton = if (showLeaveListenTogetherAction) {
+                                        {
+                                            HapticTextButton(
+                                                onClick = {
+                                                    AppContainer.listenTogetherSessionManager.leaveRoom()
+                                                    showDialog = false
+                                                }
+                                            ) {
+                                                Text(stringResource(R.string.listen_together_leave_room))
+                                            }
+                                        }
+                                    } else {
+                                        null
+                                    }
+                                )
+                            }
+
+                            // 异常错误弹窗
+                            pendingInvite?.let { invite ->
+                                val inviterNickname = invite.inviterNickname
+                                AlertDialog(
+                                    onDismissRequest = {
+                                        if (!joiningInvite) {
+                                            clearPendingListenTogetherInvite()
+                                        }
+                                    },
+                                    title = { Text(stringResource(R.string.listen_together_join_invite_title)) },
+                                    text = {
+                                        Text(
+                                            if (!inviterNickname.isNullOrBlank()) {
+                                                stringResource(
+                                                    R.string.listen_together_join_invite_message_with_inviter,
+                                                    inviterNickname,
+                                                    invite.roomId
+                                                )
+                                            } else {
+                                                stringResource(
+                                                    R.string.listen_together_join_invite_message,
+                                                    invite.roomId
+                                                )
+                                            }
+                                        )
+                                    },
+                                    confirmButton = {
+                                        HapticTextButton(
+                                            onClick = {
+                                                scope.launch {
+                                                    joiningInvite = true
+                                                    try {
+                                                        val preferences = AppContainer.listenTogetherPreferences
+                                                        val sessionManager = AppContainer.listenTogetherSessionManager
+                                                        updateListenTogetherStatus(getString(R.string.listen_together_status_joining))
+                                                        val savedBaseUrlInput = preferences.workerBaseUrlInputFlow.first()
+                                                        val savedBaseUrl = preferences.workerBaseUrlFlow.first()
+                                                        val baseUrl = resolveListenTogetherInviteJoinBaseUrl(
+                                                            invite = invite,
+                                                            savedBaseUrlInput = savedBaseUrlInput,
+                                                            savedBaseUrl = savedBaseUrl
+                                                        )
+                                                        val userUuid = preferences.getOrCreateUserUuid()
+                                                        val nickname = preferences.getOrCreateNickname()
+                                                        // 邀请地址只服务于这次入房, 不在用户未察觉时改写默认服务器
+                                                        updateListenTogetherStatus(getString(R.string.listen_together_status_syncing))
+                                                        sessionManager.joinRoom(
+                                                            baseUrl = baseUrl,
+                                                            roomId = invite.roomId,
+                                                            userUuid = userUuid,
+                                                            nickname = nickname,
+                                                            joinSecret = invite.joinSecret
+                                                        )
+                                                        sessionManager.connectWebSocket()
+                                                        clearPendingListenTogetherInvite()
+                                                    } catch (error: Throwable) {
+                                                        updateListenTogetherStatus(null)
+                                                        dialogMessage = (
+                                                            error.message ?: error.javaClass.simpleName
+                                                            ).toListenTogetherDisplayMessage()
+                                                        showDialog = true
+                                                    } finally {
+                                                        joiningInvite = false
+                                                    }
+                                                }
+                                            },
+                                            enabled = !joiningInvite
+                                        ) {
+                                            Text(
+                                                if (joiningInvite) {
+                                                    stringResource(R.string.listen_together_joining_room)
+                                                } else {
+                                                    stringResource(R.string.listen_together_join_room)
+                                                }
+                                            )
+                                        }
+                                    },
+                                    dismissButton = {
+                                        HapticTextButton(
+                                            onClick = { clearPendingListenTogetherInvite() },
+                                            enabled = !joiningInvite
+                                        ) {
+                                            Text(stringResource(R.string.action_cancel))
+                                        }
+                                    }
+                                )
+                            }
+
+                            if (showErrorDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showErrorDialog = false },
+                                    title = { Text(errorTitle) },
+                                    text = { Text(errorMessage) },
+                                    confirmButton = {
+                                        HapticTextButton(onClick = { showErrorDialog = false }) {
+                                            Text(stringResource(R.string.action_confirm))
+                                        }
+                                    }
+                                )
+                            }
+
+                            NeriApp(
+                                initialThemeSnapshot = startupThemeSnapshot,
+                                launcherShortcutRequestFlow = launcherShortcutRequestFlow,
+                                onLauncherShortcutRequestConsumed =
+                                    ::clearLauncherShortcutRequest,
+                                onIsDarkChanged = { isDark ->
+                                    // 主题切换时保留窗口底色与内容主题一致
+                                    applyWindowBackground(isDark)
+                                },
+                                onNowPlayingVisibilityChanged = { visible ->
+                                    isNowPlayingVisible = visible
+                                },
+                                onLanguageChanged = { language ->
+                                    selectedAppLanguage = language
+                                }
+                            )
+                        }
+                    }
+                    }
+                }
+
+                pendingMobileDataDownloadInterruptionRequest?.let { request ->
+                    MobileDataDownloadInterruptionDialog(
+                        request = request,
+                        onContinue = {
+                            GlobalDownloadManager.continueDownloadsOnMobileData(this@MainActivity, request)
+                        },
+                        onWaitWifi = {
+                            GlobalDownloadManager.waitDownloadsForWifi(request)
+                        },
+                        onCancelAll = {
+                            GlobalDownloadManager.cancelAllDownloadsForMobileData(request)
+                        }
+                    )
+                }
+
+                if (showTokenWarningDialog) {
+                    GitHubSyncWarningDialog(
+                        onConfirm = {
+                            showTokenWarningDialog = false
+                        },
+                        onDismissReminder = {
+                            showTokenWarningDialog = false
+                            startupScope.launch {
+                                startupSyncWarningCoordinator.dismissReminder()
+                            }
+                        }
+                    )
+                }
+
+                pendingStartupCrashReport?.let { report ->
+                    StartupCrashReportDialog(
+                        report = report,
+                        onCopy = {
+                            startupScope.launch(Dispatchers.IO) {
+                                val fullContent = startupCrashReportManager.readFullReport(report.file)
+                                    ?: report.previewContent
+                                withContext(Dispatchers.Main) {
+                                    if (fullContent.isNotBlank()) {
+                                        val messageRes = when (
+                                            val result = clipboardManager?.copyPlainTextSafely(
+                                                label = "crash_report",
+                                                text = fullContent
+                                            )
+                                        ) {
+                                            is ClipboardCopyResult.Copied -> if (result.wasTruncated) {
+                                                R.string.toast_copy_truncated
+                                            } else {
+                                                R.string.log_copied
+                                            }
+                                            ClipboardCopyResult.TransactionTooLarge,
+                                            null -> R.string.toast_copy_failed
+                                        }
+                                        AppFeedback.show(
+                                            context = this@MainActivity,
+                                            message = getString(messageRes)
+                                        )
+                                    } else {
+                                        AppFeedback.show(
+                                            context = this@MainActivity,
+                                            message = getString(R.string.log_cannot_read)
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        onExport = {
+                            exportCrashReportLauncher.launch(report.file.name)
+                        },
+                        onClose = {
+                            startupCrashReportManager.clearPendingReport()
+                            pendingStartupCrashReport = null
+                        }
+                    )
+                }
+                }
+                }
+            }
+        }
+
+        scheduleStartupSyncIfNeeded()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun applyWindowBackground(isDark: Boolean) {
+        val bgColor = if (isDark) "#121212".toColorInt() else Color.WHITE
+        window.setBackgroundDrawable(bgColor.toDrawable())
+        @Suppress("DEPRECATION")
+        run {
+            window.statusBarColor = Color.TRANSPARENT
+            window.navigationBarColor = Color.TRANSPARENT
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isStatusBarContrastEnforced = false
+        }
+    }
+
+    private fun restoreFromSafeMode() {
+        runCatching {
+            SafeModeRecoveryCoordinator(
+                initializeNormalComponents = {
+                    (application as? NeriPlayerApplication)?.initializeNormalComponents()
+                },
+                restoreNormalStartup = {
+                    SafeModeManager.restoreNormalStartup(this)
+                }
+            ).restore()
+            val restartIntent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            }
+            startActivity(restartIntent)
+            finish()
+        }.onFailure { error ->
+            AppFeedback.show(
+                context = this,
+                message = getString(
+                    R.string.safe_mode_restore_failed,
+                    error.message ?: error.javaClass.simpleName
+                ),
+                duration = SnackbarDuration.Long
+            )
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (safeModeActive) {
+            setIntent(intent)
+            return
+        }
+        setIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (safeModeActive) {
+            return
+        }
+        AppContainer.listenTogetherSessionManager.onApplicationForegrounded()
+        startPendingExternalAudioServiceIfNeeded()
+    }
+
+    override fun onStop() {
+        if (!safeModeActive) {
+            PlayerManager.flushPlaybackStatsAsync("activity_stop")
+            AppContainer.listenTogetherSessionManager.onApplicationBackgrounded()
+        }
+        super.onStop()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (safeModeActive) {
+            return
+        }
+        if (hasFocus) {
+            startPendingExternalAudioServiceIfNeeded()
+        }
+    }
+
+    private fun handleIncomingIntent(intent: Intent?) {
+        if (handleLauncherShortcutIntent(intent)) return
+        if (handleListenTogetherInviteIntent(intent)) return
+        handleExternalAudioIntent(intent)
+    }
+
+    private fun handleLauncherShortcutIntent(intent: Intent?): Boolean {
+        val action = launcherShortcutActionFromIntentAction(intent?.action) ?: return false
+        pendingLauncherShortcutRequest.value = LauncherShortcutRequest(
+            token = ++launcherShortcutRequestToken,
+            action = action
+        )
+        setIntent(Intent(this, MainActivity::class.java))
+        return true
+    }
+
+    private fun clearLauncherShortcutRequest(request: LauncherShortcutRequest) {
+        if (pendingLauncherShortcutRequest.value?.token == request.token) {
+            pendingLauncherShortcutRequest.value = null
+        }
+    }
+
+    private fun handleListenTogetherInviteIntent(intent: Intent?): Boolean {
+        val invite = parseListenTogetherInvite(intent?.data) ?: return false
+        presentListenTogetherInvite(invite)
+        setIntent(Intent(this, MainActivity::class.java))
+        return true
+    }
+
+    private fun clearPendingListenTogetherInvite() {
+        pendingListenTogetherInvite.value = null
+    }
+
+    private fun clearListenTogetherInviteCache() {
+        clearPendingListenTogetherInvite()
+    }
+
+    @SuppressLint("ObsoleteSdkInt")
+    private fun startPendingExternalAudioServiceIfNeeded() {
+        val pendingStart = pendingExternalAudioServiceStart ?: return
+        val isDestroyed = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && isDestroyed
+        if (
+            !canUseDirectPlaybackServiceStart(
+                isFinishing = isFinishing,
+                isDestroyed = isDestroyed,
+                lifecycleState = lifecycle.currentState,
+                hasWindowFocus = hasWindowFocus()
+            )
+        ) {
+            return
+        }
+        if (pendingStart.requestToken != externalAudioRequestToken) {
+            pendingExternalAudioServiceStart = null
+            return
+        }
+        val started = AudioPlayerService.startSyncService(
+            this,
+            pendingStart.source,
+            forceForeground = pendingStart.forceForeground
+        )
+        if (started) {
+            NPLogger.d(
+                "MainActivity",
+                "Retried audio service start after activity resumed: source=${pendingStart.source}"
+            )
+            pendingExternalAudioServiceStart = null
+        }
+    }
+
+    private fun scheduleExternalAudioMetadataHydration(
+        requestToken: Long,
+        quickSong: com.tencent.ibg.joox.data.model.SongItem
+    ) {
+        externalAudioMetadataHydrationJob?.cancel()
+        externalAudioMetadataHydrationJob = lifecycleScope.launch {
+            delay(1200L)
+            if (requestToken != externalAudioRequestToken) {
+                return@launch
+            }
+            val detailedSong = withContext(Dispatchers.IO) {
+                runCatching {
+                    LocalMediaSupport.inspect(this@MainActivity, quickSong)
+                        ?.let(LocalMediaSupport::toSongItem)
+                }.getOrElse {
+                    NPLogger.w(
+                        "MainActivity",
+                        "External audio metadata hydration skipped: ${it.message}"
+                    )
+                    null
+                }
+            } ?: return@launch
+            if (requestToken != externalAudioRequestToken) {
+                return@launch
+            }
+            PlayerManager.hydrateSongMetadata(
+                originalSong = quickSong,
+                updatedSong = LocalAudioImportManager.mergeImportedSongMetadata(
+                    quickSong = quickSong,
+                    detailedSong = detailedSong
+                )
+            )
+        }
+    }
+
+    private fun updateListenTogetherStatus(message: String?) {
+        listenTogetherStatusMessage.value = message
+    }
+
+    private fun showListenTogetherStatusFeedback(message: String) {
+        val displayMessage = message.toListenTogetherDisplayMessage()
+        if (displayMessage.isBlank()) return
+        AppFeedback.showToast(
+            context = this,
+            message = displayMessage
+        )
+    }
+
+    private fun scheduleStartupSyncIfNeeded() {
+        lifecycleScope.launch {
+            StartupSyncScheduler(
+                context = this@MainActivity,
+                ioDispatcher = Dispatchers.IO,
+                isStarted = {
+                    lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                }
+            ).scheduleIfNeeded()
+        }
+    }
+
+    private fun shouldOfferListenTogetherLeaveAction(message: String): Boolean {
+        return message == getString(R.string.listen_together_error_controller_offline) ||
+            message == getString(R.string.listen_together_error_unauthorized) ||
+            message == getString(R.string.listen_together_error_room_not_found) ||
+            message == getString(R.string.listen_together_notice_room_closed) ||
+            message == getString(R.string.listen_together_error_reconnecting) ||
+            message == getString(R.string.listen_together_error_rejoining)
+    }
+
+    private fun String.toListenTogetherDisplayMessage(): String {
+        val normalized = trim()
+        val lowered = normalized.lowercase()
+        return when {
+            startsWith("controller_offline:") -> {
+                val minutes = substringAfter(':')
+                    .toLongOrNull()
+                    ?.coerceAtLeast(0L)
+                    ?.coerceAtMost(Int.MAX_VALUE.toLong())
+                    ?.toInt()
+                    ?: 10
+                resources.getQuantityString(
+                    R.plurals.listen_together_notice_controller_offline,
+                    minutes,
+                    minutes
+                )
+            }
+            startsWith("member_joined:") ->
+                getString(R.string.listen_together_notice_member_joined, substringAfter(':'))
+            startsWith("member_left:") ->
+                getString(R.string.listen_together_notice_member_left, substringAfter(':'))
+            normalized == "controller_reconnected" ->
+                getString(R.string.listen_together_notice_controller_reconnected)
+            normalized.equals("controller_left", ignoreCase = true) ->
+                getString(R.string.listen_together_notice_controller_left)
+            normalized == "controller_timeout" ||
+                normalized == "room_closed" ||
+                "room closed" in lowered ->
+                getString(R.string.listen_together_notice_room_closed)
+            "unauthorized" in lowered ||
+                "http=401" in lowered ||
+                "(401)" in lowered ->
+                getString(R.string.listen_together_error_unauthorized)
+            "room not initialized" in lowered ||
+                "not found in do" in lowered ->
+                getString(R.string.listen_together_error_room_not_found)
+            "controller offline" in lowered ->
+                getString(R.string.listen_together_error_controller_offline)
+            "member control disabled" in lowered ->
+                getString(R.string.listen_together_error_member_control_disabled)
+            normalized == getString(R.string.listen_together_error_reconnecting) ||
+                ("listen together" in lowered && "reconnect" in lowered) ->
+                getString(R.string.listen_together_error_reconnecting)
+            normalized == getString(R.string.listen_together_error_rejoining) ||
+                ("rejoin" in lowered && "room" in lowered) ->
+                getString(R.string.listen_together_error_rejoining)
+            else -> normalized
+        }
+    }
+
+    private fun presentListenTogetherInvite(invite: ListenTogetherInvite) {
+        val currentRoomId = AppContainer.listenTogetherSessionManager.sessionState.value.roomId
+            ?.let(::normalizeListenTogetherRoomId)
+        if (currentRoomId != null && currentRoomId == invite.roomId) {
+            return
+        }
+        if (pendingListenTogetherInvite.value?.signature == invite.signature) return
+        pendingListenTogetherInvite.value = invite
+    }
+
+    private fun handleExternalAudioIntent(intent: Intent?) {
+        val action = intent?.action ?: return
+        val uriList: List<Uri> = when (action) {
+            Intent.ACTION_VIEW -> intent.data?.let(::listOf) ?: emptyList()
+            Intent.ACTION_SEND -> getSharedSingleUri(intent)?.let(::listOf) ?: emptyList()
+            Intent.ACTION_SEND_MULTIPLE -> getSharedMultipleUris(intent)
+            else -> emptyList()
+        }
+        if (uriList.isEmpty()) return
+
+        externalAudioImportJob?.cancel()
+        externalAudioMetadataHydrationJob?.cancel()
+        val requestToken = ++externalAudioRequestToken
+        pendingExternalAudioServiceStart = null
+        setIntent(Intent(this, MainActivity::class.java))
+
+        externalAudioImportJob = lifecycleScope.launch {
+            try {
+                val result = LocalAudioImportManager.importExternalSongs(this@MainActivity, uriList)
+                if (requestToken != externalAudioRequestToken) {
+                    return@launch
+                }
+                if (result.songs.isNotEmpty()) {
+                    PlayerManager.initialize(application)
+                    PlayerManager.playPlaylist(result.songs, startIndex = 0)
+                    result.songs.firstOrNull()?.let { firstSong ->
+                        scheduleExternalAudioMetadataHydration(requestToken, firstSong)
+                    }
+                    // 让播放状态和 mini player 先稳定一帧，再拉起前台服务
+                    delay(16L)
+                    if (requestToken != externalAudioRequestToken) {
+                        return@launch
+                    }
+                    NPLogger.d("MainActivity", "Starting audio service after external audio import")
+                    val serviceStarted = AudioPlayerService.startSyncService(
+                        this@MainActivity,
+                        "external_audio_import",
+                        forceForeground = true
+                    )
+                    if (!serviceStarted) {
+                        pendingExternalAudioServiceStart = PendingAudioServiceStart(
+                            requestToken = requestToken,
+                            source = "external_audio_import",
+                            forceForeground = true
+                        )
+                        NPLogger.w(
+                            "MainActivity",
+                            "Deferred audio service start until activity is resumed"
+                        )
+                    }
+                }
+            } catch (_: CancellationException) {
+                // 只保留最新一次外部唤起请求
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        if (!safeModeActive) {
+            PlayerManager.flushPlaybackStatsAsync("activity_destroy")
+        }
+        externalAudioImportJob?.cancel()
+        externalAudioMetadataHydrationJob?.cancel()
+        super.onDestroy()
+        ExceptionHandler.cleanup()
+    }
+
+    private fun observePreferredHighRefreshRate() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                settingsRepository.preferHighRefreshRateFlow.collect { enabled ->
+                    applyPreferredHighRefreshRate(enabled)
+                }
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getSharedSingleUri(intent: Intent): Uri? {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+        } else {
+            intent.getParcelableExtra(Intent.EXTRA_STREAM)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun getSharedMultipleUris(intent: Intent): List<Uri> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+        } else {
+            intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
+        }
+    }
+}
+
+/* --------------------- 统一主题 --------------------- */
+
+@Composable
+fun NeriTheme(
+    useDark: Boolean,
+    useDynamic: Boolean,
+    content: @Composable () -> Unit
+) {
+    val context = LocalContext.current
+    val colorScheme = when {
+        useDynamic && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            if (useDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        else -> {
+            if (useDark) darkColorScheme() else lightColorScheme()
+        }
+    }
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography(),
+        content = content
+    )
+}
+
+@Composable
+private fun StartupCrashReportDialog(
+    report: CrashReportStore.PendingCrashReport,
+    onCopy: () -> Unit,
+    onExport: () -> Unit,
+    onClose: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { },
+        title = {
+            Text(
+                text = when (report.origin) {
+                    CrashReportStore.CrashOrigin.Jvm ->
+                        stringResource(R.string.startup_crash_report_title_jvm)
+                    CrashReportStore.CrashOrigin.Native ->
+                        stringResource(R.string.startup_crash_report_title_native)
+                    CrashReportStore.CrashOrigin.Anr ->
+                        stringResource(R.string.startup_crash_report_title_anr)
+                    CrashReportStore.CrashOrigin.Unknown ->
+                        stringResource(R.string.startup_crash_report_title)
+                }
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(320.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = stringResource(
+                        R.string.startup_crash_report_desc,
+                        report.file.name
+                    )
+                )
+                if (report.previewTruncated) {
+                    Text(
+                        text = stringResource(R.string.startup_crash_report_truncated),
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Text(
+                    text = report.previewContent.ifBlank {
+                        stringResource(R.string.log_cannot_read)
+                    },
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        },
+        confirmButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HapticTextButton(onClick = onCopy) {
+                    Text(stringResource(R.string.debug_copy_all))
+                }
+                HapticTextButton(onClick = onExport) {
+                    Text(stringResource(R.string.log_export))
+                }
+                HapticTextButton(onClick = onClose) {
+                    Text(stringResource(R.string.action_close))
+                }
+            }
+        },
+        dismissButton = null
+    )
+}
+
+@Composable
+fun DisclaimerScreen(
+    onAgree: () -> Unit,
+    initialCountdownSeconds: Int = 5
+) {
+    StartupDisclaimerContent(
+        onAgree = onAgree,
+        initialCountdownSeconds = initialCountdownSeconds
+    )
+}

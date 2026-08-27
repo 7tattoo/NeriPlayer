@@ -32,7 +32,7 @@ val releaseSigningReady = releaseKeystoreFile.exists() &&
     !releaseKeyPassword.isNullOrBlank()
 
 android {
-    namespace = "moe.ouom.neriplayer"
+    namespace = "com.tencent.ibg.joox"
     val buildUUID = UUID.randomUUID()
     val buildAllReleaseAbis = (project.findProperty("buildAllReleaseAbis") as String?)?.toBoolean() == true
     val defaultReleaseAbiFilters = listOf("arm64-v8a")
@@ -61,7 +61,7 @@ android {
     println("buildUUID: $buildUUID")
 
     defaultConfig {
-        applicationId = "moe.ouom.neriplayer"
+        applicationId = "com.tencent.ibg.joox"
 
         buildConfigField("String", "BUILD_UUID", "\"${buildUUID}\"")
         buildConfigField("String", "TAG", "\"[NeriPlayer]\"")
