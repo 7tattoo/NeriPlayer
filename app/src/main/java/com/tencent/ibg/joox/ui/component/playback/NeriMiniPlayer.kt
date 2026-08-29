@@ -91,8 +91,8 @@ object NeriMiniPlayerDefaults {
 
 private const val MINI_PLAYER_COVER_CLEAR_DELAY_MS = 900L
 private const val MINI_PLAYER_METADATA_LINE_HEIGHT_EM = 1.5f
-private const val MINI_PLAYER_TITLE_LINE_HEIGHT_DP = 24f
-private const val MINI_PLAYER_ARTIST_LINE_HEIGHT_DP = 20f
+private const val MINI_PLAYER_TITLE_LINE_HEIGHT_DP = 20f
+private const val MINI_PLAYER_ARTIST_LINE_HEIGHT_DP = 16f
 private const val MINI_PLAYER_TITLE_MIN_VISUAL_FONT_SIZE_SP = 10f
 private const val MINI_PLAYER_ARTIST_MIN_VISUAL_FONT_SIZE_SP = 9f
 private const val MINI_PLAYER_METADATA_AUTO_SIZE_STEP_SP = 0.25f
