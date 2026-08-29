@@ -358,9 +358,9 @@ fun HomeScreen(
     val windowWidthDp = currentWindowWidthDp()
     val isTabletLayout = windowWidthDp >= 720.dp
     val pageHorizontalPadding = if (isTabletLayout) 28.dp else 16.dp
-    val gridMinCellSize = if (isTabletLayout) 156.dp else 120.dp
-    val gridContentPadding = if (isTabletLayout) 14.dp else 8.dp
-    val gridSpacing = if (isTabletLayout) 14.dp else 10.dp
+    val gridMinCellSize = if (isTabletLayout) 200.dp else 120.dp
+    val gridContentPadding = if (isTabletLayout) 20.dp else 8.dp
+    val gridSpacing = if (isTabletLayout) 20.dp else 10.dp
 
     fun toggleHomeSongFavorite(song: SongItem, isFavorite: Boolean) {
         scope.launch {
