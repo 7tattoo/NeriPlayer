@@ -7,6 +7,10 @@
 <h3>✨ 一个把多源在线播放、本地管理、歌词体验和自建同步做进原生 Android 的音频播放器 🎵</h3>
 
 <p>
+本Fork项目专门适配Vivo智能车载(Joviincar)车载投屏时音乐卡片滚动歌词显示。
+</p>
+
+<p>
   <a href="https://github.com/cwuom/NeriPlayer/releases">
     <img alt="Downloads" src="https://img.shields.io/github/downloads/cwuom/NeriPlayer/total?style=social" />
   </a>
