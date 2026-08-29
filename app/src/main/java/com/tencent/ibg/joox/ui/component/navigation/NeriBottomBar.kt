@@ -82,7 +82,7 @@ fun NeriBottomBar(
 
     AdvancedGlassSurface(
         role = AdvancedGlassRole.BottomNavigation,
-        modifier = modifier,
+        modifier = modifier.heightIn(max = 64.dp),
         fallbackColor = fallbackColor
     ) {
         NavigationBar(
