@@ -434,19 +434,11 @@ internal fun resolveBottomBarLayoutInsets(
     baseBlurRequested: Boolean,
     bottomBarInset: Dp,
     reservedMiniPlayerHeight: Dp
-): BottomBarLayoutInsets = if (baseBlurRequested) {
-    BottomBarLayoutInsets(
-        navContentBottomPadding = 0.dp,
-        screenBottomInset = reservedMiniPlayerHeight + bottomBarInset,
-        miniPlayerBottomPadding = bottomBarInset
-    )
-} else {
-    BottomBarLayoutInsets(
-        navContentBottomPadding = bottomBarInset,
-        screenBottomInset = reservedMiniPlayerHeight,
-        miniPlayerBottomPadding = 0.dp
-    )
-}
+): BottomBarLayoutInsets = BottomBarLayoutInsets(
+    navContentBottomPadding = bottomBarInset,
+    screenBottomInset = reservedMiniPlayerHeight + bottomBarInset,
+    miniPlayerBottomPadding = bottomBarInset
+)
 
 internal fun resolveMainTabBackgroundMotion(
     route: String?,
