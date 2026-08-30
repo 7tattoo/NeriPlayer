@@ -26,7 +26,6 @@ package com.tencent.ibg.joox.ui.component.navigation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
@@ -86,7 +85,7 @@ fun NeriBottomBar(
 
     AdvancedGlassSurface(
         role = AdvancedGlassRole.BottomNavigation,
-        modifier = modifier.height(70.dp),
+        modifier = modifier,
         fallbackColor = fallbackColor
     ) {
         NavigationBar(

@@ -443,8 +443,8 @@ internal fun resolveBottomBarLayoutInsets(
 } else {
     BottomBarLayoutInsets(
         navContentBottomPadding = bottomBarInset,
-        screenBottomInset = reservedMiniPlayerHeight + bottomBarInset,
-        miniPlayerBottomPadding = bottomBarInset
+        screenBottomInset = reservedMiniPlayerHeight,
+        miniPlayerBottomPadding = 0.dp
     )
 }
 
