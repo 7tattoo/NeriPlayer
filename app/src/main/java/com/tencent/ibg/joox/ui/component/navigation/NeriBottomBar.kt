@@ -104,13 +104,21 @@ fun NeriBottomBar(
                         context.performHapticFeedback()
                         onItemSelected(dest)
                     },
-                    icon = { Icon(icon, contentDescription = label) },
+                    icon = { 
+                        Icon(
+                            icon, 
+                            contentDescription = label,
+                            modifier = Modifier.size(20.dp)
+                        ) 
+                    },
                     label = {
                         Text(
                             text = label,
                             maxLines = 1,
                             softWrap = false,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(top = 2.dp),
+                            style = MaterialTheme.typography.labelSmall
                         )
                     },
                     alwaysShowLabel = alwaysShowLabel,
