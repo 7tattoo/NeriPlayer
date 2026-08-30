@@ -14,8 +14,8 @@ class NeriAppBottomBarLayoutPolicyTest {
         )
 
         assertEquals(80.dp, insets.navContentBottomPadding)
-        assertEquals(64.dp, insets.screenBottomInset)
-        assertEquals(0.dp, insets.miniPlayerBottomPadding)
+        assertEquals(144.dp, insets.screenBottomInset)
+        assertEquals(80.dp, insets.miniPlayerBottomPadding)
     }
 
     @Test
