@@ -1,0 +1,223 @@
+name: Multi Package Release
+
+# 多包名发布：同一份代码用不同 applicationId 各出一个 arm64-v8a APK，
+# 全部 APK 合并上传到同一个 GitHub Release。
+#
+# 触发方式：
+#   1. 打 tag：git tag -a multi-v1.0.0 -m "..." && git push origin multi-v1.0.0
+#   2. 手动：Actions -> Multi Package Release -> Run workflow
+#
+# 签名：仓库内置 app/joox-release.keystore（build.gradle.kts 有默认口令），
+# 无需额外 secrets，产物签名为 CN=JOOX Car。
+
+on:
+  push:
+    tags:
+      - 'multi-v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Release tag name (empty = auto generate multi-<sha>.<time>)
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: multi-package-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Prepare release metadata
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.meta.outputs.tag_name }}
+      release_time: ${{ steps.meta.outputs.release_time }}
+      target_sha: ${{ steps.meta.outputs.target_sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tag and timestamp
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          short_sha="$(git rev-parse --short HEAD)"
+          target_sha="$(git rev-parse HEAD)"
+          # 统一时间戳，保证 10 个并行 job 产出的 versionName 完全一致
+          release_time="$(TZ=Asia/Taipei date +'%m%d%H%M')"
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag_name="${GITHUB_REF_NAME}"
+          elif [ -n "${INPUT_TAG}" ]; then
+            tag_name="${INPUT_TAG}"
+          else
+            tag_name="multi-${short_sha}.${release_time}"
+          fi
+
+          echo "tag_name=${tag_name}" >> "$GITHUB_OUTPUT"
+          echo "release_time=${release_time}" >> "$GITHUB_OUTPUT"
+          echo "target_sha=${target_sha}" >> "$GITHUB_OUTPUT"
+
+          echo "tag=${tag_name} time=${release_time} sha=${target_sha}"
+
+  build:
+    name: Build ${{ matrix.label }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 5
+      matrix:
+        include:
+          - app_id: com.tencent.ibg.joox
+            label: joox
+          - app_id: com.spotify.music
+            label: spotify
+          - app_id: com.apple.android.music
+            label: applemusic
+          - app_id: com.luna.music.car
+            label: luna
+          - app_id: com.kugou.android.auto
+            label: kugou
+          - app_id: cn.kuwo.kwmusiccar
+            label: kuwo
+          - app_id: com.qidian.QDReader
+            label: qidian
+          - app_id: com.tencent.weread
+            label: weread
+          - app_id: cn.aqzscn.stream_music
+            label: aqzscn
+          - app_id: com.tencent.wecarflow
+            label: wecarflow
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Build signed Release APK (arm64-v8a)
+        env:
+          APP_ID: ${{ matrix.app_id }}
+        run: |
+          ./gradlew :app:assembleRelease \
+            -PbuildVersionTimestamp=${{ needs.prepare.outputs.release_time }} \
+            --warning-mode all --stacktrace
+
+      - name: Collect APK
+        id: collect
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          apk_files=(app/build/outputs/apk/release/*.apk)
+          if [ "${#apk_files[@]}" -eq 0 ]; then
+            echo "No APK produced for ${{ matrix.app_id }}"
+            exit 1
+          fi
+
+          mkdir -p dist
+          target="dist/NeriPlayer-${{ needs.prepare.outputs.tag_name }}-${{ matrix.app_id }}-arm64-v8a.apk"
+          cp "${apk_files[0]}" "$target"
+          ls -lh "$target"
+
+      - name: Verify applicationId
+        env:
+          EXPECTED_APP_ID: ${{ matrix.app_id }}
+        run: |
+          set -euo pipefail
+          apk="dist/NeriPlayer-${{ needs.prepare.outputs.tag_name }}-${{ matrix.app_id }}-arm64-v8a.apk"
+          aapt2_bin="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -name aapt2 2>/dev/null | sort | tail -n 1 || true)"
+
+          if [ -z "$aapt2_bin" ]; then
+            echo "aapt2 not found, skip applicationId verification"
+            exit 0
+          fi
+
+          actual="$("$aapt2_bin" dump packagename "$apk" | tr -d '\r\n')"
+          echo "packagename = $actual"
+          if [ "$actual" != "$EXPECTED_APP_ID" ]; then
+            echo "applicationId mismatch: expected $EXPECTED_APP_ID, got $actual"
+            exit 1
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.label }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish combined release
+    needs:
+      - prepare
+      - build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all APK artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: apk-*
+          merge-multiple: true
+          path: dist
+
+      - name: List APKs
+        run: ls -lh dist
+
+      - name: Compose release notes
+        run: |
+          set -euo pipefail
+          {
+            echo "多包名构建：同一份代码以不同 applicationId 各打一个 arm64-v8a APK，可同时安装、数据目录互相独立。"
+            echo
+            echo "- Commit: \`${{ needs.prepare.outputs.target_sha }}\`"
+            echo "- 签名: CN=JOOX Car (v2/v3)"
+            echo "- ABI: arm64-v8a"
+            echo
+            echo "## APK 列表"
+            echo
+            echo "| applicationId | 文件 | 大小 |"
+            echo "| --- | --- | --- |"
+            for f in dist/*.apk; do
+              name="$(basename "$f")"
+              size="$(du -h "$f" | cut -f1)"
+              app_id="$(echo "$name" | sed -E 's/^NeriPlayer-.*-([A-Za-z0-9_.]+)-arm64-v8a\.apk$/\1/')"
+              echo "| \`${app_id}\` | ${name} | ${size} |"
+            done
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag_name }}
+          target_commitish: ${{ needs.prepare.outputs.target_sha }}
+          name: ${{ needs.prepare.outputs.tag_name }} (多包名)
+          body_path: release-notes.md
+          files: dist/*.apk
+          make_latest: true

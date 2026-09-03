@@ -31,6 +31,12 @@ val releaseSigningReady = releaseKeystoreFile.exists() &&
     releaseKeyAlias.isNotBlank() &&
     !releaseKeyPassword.isNullOrBlank()
 
+// 多包名发布：优先取环境变量 APP_ID，其次 -PappId，最后回退默认包名。
+// 注意 namespace 必须保持 com.tencent.ibg.joox 不变（Kotlin 包名与 JNI 符号绑定在 namespace 上）
+val resolvedApplicationId = providers.environmentVariable("APP_ID").orNull?.takeIf { it.isNotBlank() }
+    ?: (project.findProperty("appId") as String?)?.takeIf { it.isNotBlank() }
+    ?: "com.tencent.ibg.joox"
+
 android {
     namespace = "com.tencent.ibg.joox"
     val buildUUID = UUID.randomUUID()
@@ -61,7 +67,8 @@ android {
     println("buildUUID: $buildUUID")
 
     defaultConfig {
-        applicationId = "com.tencent.ibg.joox"
+        // 多包名发布：applicationId 由 APP_ID / -PappId 决定，namespace 保持不变
+        applicationId = resolvedApplicationId
 
         buildConfigField("String", "BUILD_UUID", "\"${buildUUID}\"")
         buildConfigField("String", "TAG", "\"[NeriPlayer]\"")
@@ -238,7 +245,7 @@ androidComponents {
                 ?: ""
             output.outputFileName.set(
                 output.versionName.orElse("dev").map { versionName ->
-                    "NeriPlayer-${versionName}${abiSuffix}.apk"
+                    "NeriPlayer-${versionName}-${resolvedApplicationId}${abiSuffix}.apk"
                 }
             )
         }
