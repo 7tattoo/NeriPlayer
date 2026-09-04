@@ -49,14 +49,15 @@ class CarLyricUtilsTest {
     }
 
     @Test
-    fun `atomic lyric event is skipped without whole lyrics`() {
+    fun `atomic lyric event skips periodic resend when the track has no lyrics`() {
+        val signature = buildAtomicLyricSignature("song", "")
         assertFalse(
             shouldSendAtomicLyricEvent(
                 wholeLrc = "",
-                signature = buildAtomicLyricSignature("song", ""),
-                lastSignature = null,
-                lastSentAtElapsedRealtimeMs = 0L,
-                nowElapsedRealtimeMs = 10_000L
+                signature = signature,
+                lastSignature = signature,
+                lastSentAtElapsedRealtimeMs = 1_000L,
+                nowElapsedRealtimeMs = 10_000L + ATOMIC_LYRIC_RESEND_INTERVAL_MS
             )
         )
     }
@@ -113,6 +114,50 @@ class CarLyricUtilsTest {
                 nowElapsedRealtimeMs = 1_000L + ATOMIC_LYRIC_RESEND_INTERVAL_MS
             )
         )
+    }
+
+    @Test
+    fun `atomic lyric event is sent once per track even without lyrics to clear stale text`() {
+        // 切歌时必须发一次「新曲 ID + 空歌词」，否则组件里残留上一首歌词
+        assertTrue(
+            shouldSendAtomicLyricEvent(
+                wholeLrc = "",
+                signature = buildAtomicLyricSignature("song-b", ""),
+                lastSignature = buildAtomicLyricSignature("song-a", "[00:01.000]a\n"),
+                lastSentAtElapsedRealtimeMs = 1_000L,
+                nowElapsedRealtimeMs = 1_100L
+            )
+        )
+        // 但同一首无歌词曲目不做周期兜底重发
+        val signature = buildAtomicLyricSignature("song-b", "")
+        assertFalse(
+            shouldSendAtomicLyricEvent(
+                wholeLrc = "",
+                signature = signature,
+                lastSignature = signature,
+                lastSentAtElapsedRealtimeMs = 1_000L,
+                nowElapsedRealtimeMs = 1_000L + ATOMIC_LYRIC_RESEND_INTERVAL_MS * 4
+            )
+        )
+    }
+
+    @Test
+    fun `packages with dedicated atomic controllers cannot use the lyric protocol`() {
+        // bubei.tingshu 走 o2 LazyPeopleController：能力位硬编码 23（无 bit 8），
+        // onExtrasChanged 不解析 lrc_change，协议字段一律无效
+        assertFalse(supportsAtomicCooperateController("bubei.tingshu"))
+        assertFalse(supportsAtomicCooperateController("com.tencent.qqmusic"))
+        assertFalse(supportsAtomicCooperateController("com.kugou.android"))
+        assertFalse(supportsAtomicCooperateController("com.netease.cloudmusic"))
+        assertFalse(supportsAtomicCooperateController("com.ximalaya.ting.android"))
+        assertFalse(supportsAtomicCooperateController("com.android.bbkmusic"))
+        assertFalse(supportsAtomicCooperateController(""))
+
+        // 落到 c3 的 default 分支 → 合作控制器 c0（已实测可用）
+        assertTrue(supportsAtomicCooperateController("com.spotify.music"))
+        assertTrue(supportsAtomicCooperateController("com.tencent.ibg.joox"))
+        // 注意只有完全相等才被劫走：com.kugou.android.auto 不等于 com.kugou.android
+        assertTrue(supportsAtomicCooperateController("com.kugou.android.auto"))
     }
 
     @Test

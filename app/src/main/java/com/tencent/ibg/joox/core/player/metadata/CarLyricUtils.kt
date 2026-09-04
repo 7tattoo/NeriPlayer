@@ -41,6 +41,19 @@ import com.tencent.ibg.joox.ui.component.lyrics.LyricEntry
  *   同样是单行通道，定时推送会把车机卡片反复压回单行。
  * - 歌词未就绪时 **什么都不写**，尤其不能写 `LYRICS_STATUS = 1/2`：
  *   那对车机的语义是「本曲确认无歌词」，会永久退回单行模式。
+ *
+ * ### 包名硬门槛（反编译原子随身听 6.2.5.6 确认）
+ *
+ * 控制器工厂 `com/vivo/musicwidgetmix/controller/c3.a()` 先按包名走 switch，
+ * 命中硬编码分支的包会被塞进**专用控制器**，协议字段一概无效：
+ *
+ * | 包名 | 控制器 | 后果 |
+ * |---|---|---|
+ * | `bubei.tingshu` | `o2` LazyPeopleController | 能力位硬编码 23（无 bit 8），`onExtrasChanged` 只打日志、不解析 `lrc_change` → 歌词永不显示 |
+ * | `com.tencent.qqmusic` / `com.kugou.android` / `com.netease.cloudmusic` / `com.ximalaya.ting.android` / `com.android.bbkmusic` | 各自专用控制器 | 同上 |
+ * | 落到 `default` 且声明了 [VIVO_MUSIC_WIDGET_SERVICE_ACTION] | `c0` CooperateController | **唯一**会读 support_event、会解析 `lrc_change` 的路径 |
+ *
+ * 因此 applicationId 必须避开硬编码名单。已实测可用：`com.spotify.music`。
  */
 
 // ——— 车联投屏（ucar）———
@@ -62,17 +75,29 @@ const val UCAR_LYRICS_STATUS_HAS_LYRIC = 0L
  */
 const val VIVO_MUSIC_WIDGET_SERVICE_ACTION = "com.vivo.musicwidgetmix.support.service"
 
-/** 能力位声明，写在 [android.media.MediaMetadata] 里。 */
+/** 能力位声明，写在 [android.media.MediaMetadata] 里。合作控制器 `c0.k0()` 原样读取、不补位。 */
 const val METADATA_KEY_VIVOMIX_SUPPORT_EVENT = "vivomusicmix.media.metadata.support_event"
 
-/** 31 = 7（基础播控）| 8（歌词）| 16（进度条 / seek）；缺 8 位组件不显示歌词区。 */
+/**
+ * 31 = 7（基础播控）| 8（歌词）| 16（进度条 / seek / 时间显示）。
+ *
+ * bit 8 缺失组件不显示歌词区（`f5/n.java`: `b1.c(P0(), 8)`）；
+ * bit 16 缺失进度条恒为 `--:--`（`t4/d0.java` `Y0()/Z0()`: `duration > 0 && (se & 16) == 16`）。
+ * 通用控制器 `y2` 会自己按 `ACTION_SEEK_TO` 算出 23，但合作控制器不会，必须自己写全。
+ */
 const val VIVOMIX_SUPPORT_EVENT_ALL = 31L
 
 /** 注意 vivo 官方把 media 拼成了 meida，必须照抄，写成正确拼写收不到。 */
 const val VIVOMIX_ACTION_KEY = "vivomusicmix.meida.extra.key.action"
 const val VIVOMIX_ACTION_LRC_CHANGE = "vivomusicmix.extra.lrc_change"
 
-/** 同样是官方 typo：meidia_id。 */
+/**
+ * 同样是官方 typo：meidia_id。
+ *
+ * **必须等于 [android.media.MediaMetadata.METADATA_KEY_MEDIA_ID]** —— 合作控制器把
+ * metadata 的 MEDIA_ID 存成 musicId，`MusicWidgetManager.refreshLrc()` 里
+ * `!str.equals(this.musicId)` 就直接 return，两边对不上整段歌词会被静默丢弃。
+ */
 const val VIVOMIX_MEDIA_ID_KEY = "vivomusicmix.extra.key.meidia_id"
 const val VIVOMIX_LYRIC_KEY = "vivomusicmix.extra.key.lyric"
 
@@ -81,6 +106,37 @@ const val VIVOMIX_LYRIC_KEY = "vivomusicmix.extra.key.lyric"
  * 「车机 / 小组件在播放开始之后才连上」的场景。
  */
 internal const val ATOMIC_LYRIC_RESEND_INTERVAL_MS = 25_000L
+
+/**
+ * 原子随身听 `c3.a()` 里带硬编码专用控制器的包名。用这些 applicationId 打包，
+ * 组件不会走合作控制器 `c0`，能力位与 `lrc_change` 事件一律无效，歌词永远出不来。
+ *
+ * 例：`bubei.tingshu` → `o2` LazyPeopleController，能力位硬编码 23（无 bit 8 歌词位），
+ * `onExtrasChanged()` 只打日志、不解析 `lrc_change`。
+ */
+val ATOMIC_DEDICATED_CONTROLLER_PACKAGES: Set<String> = setOf(
+    "com.vivo.carlauncher",
+    "com.qiyi.video",
+    "com.tencent.qqmusic",
+    "com.android.bbkmusic",
+    "com.android.bbkmusic.local",
+    "com.vivo.newsreader",
+    "com.kugou.android",
+    "com.ximalaya.ting.android",
+    "bubei.tingshu",
+    "com.netease.cloudmusic",
+    "tv.danmaku.bili"
+)
+
+/**
+ * applicationId 是否能走到原子随身听的合作控制器（即歌词协议是否可能生效）。
+ *
+ * 前提是同时声明了 [VIVO_MUSIC_WIDGET_SERVICE_ACTION]；本函数只负责排除
+ * [ATOMIC_DEDICATED_CONTROLLER_PACKAGES] 里那些被硬编码劫走的包名。
+ */
+fun supportsAtomicCooperateController(applicationId: String): Boolean {
+    return applicationId.isNotBlank() && applicationId !in ATOMIC_DEDICATED_CONTROLLER_PACKAGES
+}
 
 /**
  * 把歌词行列表拼成标准 LRC：`[mm:ss.SSS]歌词文本`，逐行以 `\n` 分隔。
@@ -130,7 +186,11 @@ internal fun shouldRefreshAtomicLyricEvent(
 /**
  * 是否真正发送 `lrc_change`。
  *
- * 没有整段歌词时返回 false —— 绝不推空 Bundle，那会把组件已经收到的 extras 清掉。
+ * 指纹含 mediaId，所以切歌（包括切到无歌词曲目）会立刻发一次「新曲 ID + 空歌词」，
+ * 用来清掉组件里上一首的残留歌词 —— 这是必须的，不是多余推送。
+ *
+ * 但**绝不推空 Bundle**：本函数返回 true 时调用方一定会带上 action + mediaId + lyric
+ * 三个键；空 Bundle 会把组件已经收到的 extras 整体清掉。
  */
 internal fun shouldSendAtomicLyricEvent(
     wholeLrc: String,
@@ -140,8 +200,9 @@ internal fun shouldSendAtomicLyricEvent(
     nowElapsedRealtimeMs: Long,
     resendIntervalMs: Long = ATOMIC_LYRIC_RESEND_INTERVAL_MS
 ): Boolean {
-    if (wholeLrc.isEmpty()) return false
     if (signature != lastSignature) return true
+    // 内容没变且本曲没歌词：周期兜底重发没有意义，直接跳过
+    if (wholeLrc.isEmpty()) return false
     if (lastSentAtElapsedRealtimeMs <= 0L) return true
     return nowElapsedRealtimeMs - lastSentAtElapsedRealtimeMs >= resendIntervalMs
 }

@@ -2456,6 +2456,11 @@ class AudioPlayerService : MediaBrowserService() {
             .putLong(MediaMetadata.METADATA_KEY_DURATION, duration)
             .putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, currentMediaArtwork)
 
+        // MEDIA_ID 是原子随身听比对歌词归属的唯一依据：
+        // 合作控制器 c0 把 metadata 的 MEDIA_ID 存成 musicId，MusicWidgetManager.refreshLrc()
+        // 要求 lrc_change 事件里的 meidia_id 与它完全相等，否则整段歌词被丢弃。
+        songKey?.let { metadataBuilder.putString(MediaMetadata.METADATA_KEY_MEDIA_ID, it) }
+
         metadataText.album?.let { album ->
             metadataBuilder.putString(MediaMetadata.METADATA_KEY_ALBUM, album)
         }
@@ -2517,9 +2522,15 @@ class AudioPlayerService : MediaBrowserService() {
     /**
      * 原子随身听（vivomusicmix 音乐小组件）歌词推送。
      *
-     * 走 `MediaSession.setExtras()` 的 `lrc_change` 事件通道，内容同样是整段 LRC，
-     * 组件自己按进度滚动。没有整段歌词时直接返回 —— 绝不推空 Bundle，
-     * 那会把组件已经收到的 extras 清掉。
+     * 走 `MediaSession.setExtras()` 的 `lrc_change` 事件通道，内容是整段 LRC，
+     * 组件自己按进度滚动。
+     *
+     * `meidia_id` 必须与 [MediaMetadata.METADATA_KEY_MEDIA_ID] 相同（都用 stableKey）：
+     * 合作控制器把 metadata 的 MEDIA_ID 当成 musicId，`MusicWidgetManager.refreshLrc()`
+     * 里两者不相等就直接 return，整段歌词会被静默丢弃。
+     *
+     * 切歌时即使还没歌词也会发一次「新曲 ID + 空 lyric」，用来清掉组件里上一首的残留；
+     * 但推送的 Bundle 始终带齐三个协议键，绝不推空 Bundle（那会清掉已有 extras）。
      */
     private fun pushAtomicLyricEvent() {
         if (!PlayerManager.carLyricEnabled || !this::mediaSession.isInitialized) {

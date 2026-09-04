@@ -1,27 +1,32 @@
-name: Tingshu Package Release
+name: Atomic Lyrics Release
 
-# 单包名发布：以 applicationId = bubei.tingshu 出一个 arm64-v8a 签名 APK。
+# 单包名发布：为 vivo 原子随身听 + 车联投屏歌词适配出一个 arm64-v8a 签名 APK。
+#
+# applicationId 默认 com.spotify.music —— 这是实测能走到原子随身听「合作控制器」的包名。
+# 反编译原子随身听 6.2.5.6 的 controller/c3.a() 可见，一批包名被硬编码到专用控制器
+# （例如 bubei.tingshu → o2 LazyPeopleController，能力位固定 23 无歌词位、
+# 且完全不解析 lrc_change 事件），用那些包名打包歌词永远出不来。
+# 本工作流会在构建前拦截这些包名。
 #
 # 触发方式：
-#   1. 打 tag：git tag -a tingshu-v1.0.0 -m "..." && git push origin tingshu-v1.0.0
-#   2. 手动：Actions -> Tingshu Package Release -> Run workflow（workflow 需已在默认分支）
+#   1. 打 tag：git tag -a atomic-v1.0.0 -m "..." && git push origin atomic-v1.0.0
+#   2. 手动：Actions -> Atomic Lyrics Release -> Run workflow（workflow 需已在默认分支）
 #
-# 签名：仓库内置 app/joox-release.keystore（build.gradle.kts 有默认口令），
-# 无需额外 secrets。
+# 签名：仓库内置 app/joox-release.keystore（build.gradle.kts 有默认口令），无需额外 secrets。
 
 on:
   push:
     tags:
-      - 'tingshu-v*'
+      - 'atomic-v*'
   workflow_dispatch:
     inputs:
       app_id:
-        description: applicationId (default bubei.tingshu)
+        description: applicationId (default com.spotify.music)
         required: false
-        default: bubei.tingshu
+        default: com.spotify.music
         type: string
       release_tag:
-        description: Release tag name (empty = auto generate tingshu-<sha>.<time>)
+        description: Release tag name (empty = auto generate atomic-<sha>.<time>)
         required: false
         type: string
 
@@ -29,7 +34,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: tingshu-package-release-${{ github.ref }}
+  group: atomic-lyrics-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -62,14 +67,28 @@ jobs:
           short_sha="$(git rev-parse --short HEAD)"
           target_sha="$(git rev-parse HEAD)"
           release_time="$(TZ=Asia/Taipei date +'%m%d%H%M')"
-          app_id="${INPUT_APP_ID:-bubei.tingshu}"
+          app_id="${INPUT_APP_ID:-com.spotify.music}"
+
+          # 原子随身听里带硬编码专用控制器的包名：这些包走不到合作控制器 c0，
+          # support_event 与 lrc_change 一律无效，必须拦下来，别再浪费一次实车测试。
+          for blocked in \
+            com.vivo.carlauncher com.qiyi.video com.tencent.qqmusic \
+            com.android.bbkmusic com.android.bbkmusic.local com.vivo.newsreader \
+            com.kugou.android com.ximalaya.ting.android bubei.tingshu \
+            com.netease.cloudmusic tv.danmaku.bili; do
+            if [ "$app_id" = "$blocked" ]; then
+              echo "::error::applicationId '$app_id' 在原子随身听里绑定了专用控制器，歌词协议无效。"
+              echo "::error::请改用未被硬编码的包名，例如 com.spotify.music。"
+              exit 1
+            fi
+          done
 
           if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
             tag_name="${GITHUB_REF_NAME}"
           elif [ -n "${INPUT_TAG}" ]; then
             tag_name="${INPUT_TAG}"
           else
-            tag_name="tingshu-${short_sha}.${release_time}"
+            tag_name="atomic-${short_sha}.${release_time}"
           fi
 
           {
@@ -154,7 +173,8 @@ jobs:
             vivomusicmix.media.metadata.support_event \
             vivomusicmix.meida.extra.key.action \
             vivomusicmix.extra.key.meidia_id \
-            vivomusicmix.extra.key.lyric; do
+            vivomusicmix.extra.key.lyric \
+            android.media.metadata.MEDIA_ID; do
             if ! strings /tmp/all.dex | grep -qF "$key"; then
               echo "required protocol key missing: $key"
               exit 1
@@ -175,7 +195,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: apk-tingshu
+          name: apk-atomic
           path: dist/*.apk
           if-no-files-found: error
 
@@ -192,9 +212,13 @@ jobs:
             echo
             echo "## 协议要点"
             echo
-            echo "- 原子随身听: manifest 声明 \`com.vivo.musicwidgetmix.support.service\`，metadata 带"
-            echo "  \`vivomusicmix.media.metadata.support_event=31\`，整段 LRC 走 \`setExtras\` 的 \`lrc_change\` 事件"
-            echo "- 车联投屏: 只写 \`ucar.media.metadata.LYRICS_WHOLE\` + \`LYRICS_STATUS=0\`，车机自行滚动"
+            echo "- **包名必须避开原子随身听的硬编码专用控制器**（\`bubei.tingshu\` 等），"
+            echo "  否则组件走 \`o2\` 而非合作控制器 \`c0\`，能力位与歌词事件一律无效"
+            echo "- manifest 声明 \`com.vivo.musicwidgetmix.support.service\`，服务 exported"
+            echo "- metadata 带 \`support_event=31\`（7 播控 | 8 歌词 | 16 进度条）"
+            echo "- metadata 带 \`android.media.metadata.MEDIA_ID\`，与 \`lrc_change\` 事件的"
+            echo "  \`meidia_id\` 相同 —— 组件要求两者相等才接收整段歌词"
+            echo "- 车联投屏只写 \`ucar.media.metadata.LYRICS_WHOLE\` + \`LYRICS_STATUS=0\`"
             echo "- 已移除单行模式信号 \`LYRICS_LINE\` 与 \`music.media.extras.*\`"
             echo
             echo "## 产物"
