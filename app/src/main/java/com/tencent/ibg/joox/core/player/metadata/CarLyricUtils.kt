@@ -1,46 +1,90 @@
 package com.tencent.ibg.joox.core.player.metadata
 
+/*
+ * NeriPlayer - A unified Android player for streaming music and videos from multiple online platforms.
+ * Copyright (C) 2025-2025 NeriPlayer developers
+ * https://github.com/cwuom/NeriPlayer
+ *
+ * This software is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software.
+ * If not, see <https://www.gnu.org/licenses/>.
+ *
+ * File: com.tencent.ibg.joox.core.player.metadata/CarLyricUtils
+ * Updated: 2026/9/4
+ */
+
 import com.tencent.ibg.joox.ui.component.lyrics.LyricEntry
 
 /**
- * 车载歌词键常量 — vivo 智能车联协议
+ * vivo 车机歌词协议常量与纯函数。
  *
- * 参考 vivo 车机 MediaSession 歌词读取协议：
- * - 裸键 + ucar.media.metadata. 前缀双写 LYRICS_LINE / LYRICS_WHOLE / LYRICS_STATUS
- * - setExtras 写 music.media.extras.LYRIC / LYRIC_IS_ALLOWED / NOTICE_CAR
- * - vivomusicmix 协议键（供 vivo 智能车载 App 投屏使用）
+ * 覆盖两个互相独立的显示位：
+ * 1. **车联投屏（ucar / joviincar）**：整段 LRC 走 [MediaMetadata]，车机自己按
+ *    PlaybackState 进度滚动多行。
+ * 2. **原子随身听（vivomusicmix 音乐小组件）**：整段 LRC 走
+ *    `MediaSession.setExtras()` 的 `lrc_change` 事件，组件自己按进度滚动。
+ *
+ * 三条铁律（都是踩过的坑，别改）：
+ * - **绝不写** `ucar.media.metadata.LYRICS_LINE`：那是单行模式的协议信号，
+ *   车机收到就切单行卡片并忽略整段歌词。
+ * - **绝不写** `music.media.extras.{LYRIC,LYRIC_IS_ALLOWED,NOTICE_CAR}`：
+ *   同样是单行通道，定时推送会把车机卡片反复压回单行。
+ * - 歌词未就绪时 **什么都不写**，尤其不能写 `LYRICS_STATUS = 1/2`：
+ *   那对车机的语义是「本曲确认无歌词」，会永久退回单行模式。
  */
 
-// ——— Metadata 裸键 ———
-const val METADATA_KEY_LYRICS_LINE = "LYRICS_LINE"
-const val METADATA_KEY_LYRICS_WHOLE = "LYRICS_WHOLE"
-const val METADATA_KEY_LYRICS_STATUS = "LYRICS_STATUS"
-
-// ——— ucar 前缀键 ———
+// ——— 车联投屏（ucar）———
 const val UCAR_PREFIX = "ucar.media.metadata."
-const val METADATA_KEY_UCAR_LYRICS_LINE = "${UCAR_PREFIX}LYRICS_LINE"
+
+/** 整段 LRC 文本，车机据此滚动多行歌词。 */
 const val METADATA_KEY_UCAR_LYRICS_WHOLE = "${UCAR_PREFIX}LYRICS_WHOLE"
+
+/** 歌词状态，Long 类型；只在确实有整段歌词时写 [UCAR_LYRICS_STATUS_HAS_LYRIC]。 */
 const val METADATA_KEY_UCAR_LYRICS_STATUS = "${UCAR_PREFIX}LYRICS_STATUS"
 
-// ——— Extras 键 ———
-const val EXTRA_LYRIC = "music.media.extras.LYRIC"
-const val EXTRA_LYRIC_IS_ALLOWED = "music.media.extras.LYRIC_IS_ALLOWED"
-const val EXTRA_NOTICE_CAR = "music.media.extras.NOTICE_CAR"
+/** 0 = 有歌词。1（无歌词）/ 2（加载失败）属于负状态，本工程从不写。 */
+const val UCAR_LYRICS_STATUS_HAS_LYRIC = 0L
 
-// ——— vivomusicmix 协议键 ———
-const val VIVOMIX_ACTION_KEY = "vivomusicmix.meida.extra.key.action" // 注意: media 拼写与 vivo 官方一致
+// ——— 原子随身听（vivomusicmix）———
+/**
+ * 原子随身听的服务发现 action，必须同时写进 `MediaBrowserService` 的 intent-filter，
+ * 否则组件不会把本 App 识别为可用音乐源。
+ */
+const val VIVO_MUSIC_WIDGET_SERVICE_ACTION = "com.vivo.musicwidgetmix.support.service"
+
+/** 能力位声明，写在 [android.media.MediaMetadata] 里。 */
+const val METADATA_KEY_VIVOMIX_SUPPORT_EVENT = "vivomusicmix.media.metadata.support_event"
+
+/** 31 = 7（基础播控）| 8（歌词）| 16（进度条 / seek）；缺 8 位组件不显示歌词区。 */
+const val VIVOMIX_SUPPORT_EVENT_ALL = 31L
+
+/** 注意 vivo 官方把 media 拼成了 meida，必须照抄，写成正确拼写收不到。 */
+const val VIVOMIX_ACTION_KEY = "vivomusicmix.meida.extra.key.action"
 const val VIVOMIX_ACTION_LRC_CHANGE = "vivomusicmix.extra.lrc_change"
+
+/** 同样是官方 typo：meidia_id。 */
 const val VIVOMIX_MEDIA_ID_KEY = "vivomusicmix.extra.key.meidia_id"
 const val VIVOMIX_LYRIC_KEY = "vivomusicmix.extra.key.lyric"
 
-// LYRICS_STATUS 值
-const val LYRIC_STATUS_HAS_LYRIC = "0"
-const val LYRIC_STATUS_NO_LYRIC = "1"
+/**
+ * `lrc_change` 兜底重发间隔。事件语义无需高频推送，25s 重发一次用于覆盖
+ * 「车机 / 小组件在播放开始之后才连上」的场景。
+ */
+internal const val ATOMIC_LYRIC_RESEND_INTERVAL_MS = 25_000L
 
 /**
- * 根据不同歌词行列表构建标准 LRC 字符串。
- * 格式: [mm:ss.xxx]歌词文本
- * 不推送 ELRC 逐字标签。
+ * 把歌词行列表拼成标准 LRC：`[mm:ss.SSS]歌词文本`，逐行以 `\n` 分隔。
+ * 不推送 ELRC 逐字标签，空行直接跳过。
  */
 fun buildCarLyricWhole(lyrics: List<LyricEntry>): String {
     if (lyrics.isEmpty()) return ""
@@ -60,34 +104,44 @@ fun buildCarLyricWhole(lyrics: List<LyricEntry>): String {
 }
 
 /**
- * 获取当前单行歌词（取当前播放位置的歌词行文本）。
- * 如果无歌词返回空字符串。
+ * 原子随身听事件指纹：曲目 + 歌词内容。指纹变化即代表需要立刻重发 `lrc_change`，
+ * 无需等重发窗口（歌词是异步加载的，切歌那一刻推的必定还没歌词）。
  */
-internal fun resolveCarLyricLine(
-    lyrics: List<LyricEntry>,
-    positionMs: Long,
-    lyricOffsetMs: Long = 0L
-): String {
-    if (lyrics.isEmpty()) return ""
-
-    val targetTimeMs = (positionMs + lyricOffsetMs).coerceAtLeast(0L)
-    var result = ""
-    for (entry in lyrics) {
-        if (entry.startTimeMs <= targetTimeMs) {
-            // 只有文本非空的行才视为有效歌词行
-            if (entry.text.trim().isNotBlank()) {
-                result = entry.text.trim()
-            }
-        } else {
-            break
-        }
-    }
-    return result
+internal fun buildAtomicLyricSignature(mediaId: String, wholeLrc: String): String {
+    return "$mediaId|${wholeLrc.length}|${wholeLrc.hashCode()}"
 }
 
 /**
- * 检测当前歌词是否有效（有人可读的歌词文本）。
+ * 廉价前置判断：用于播放进度驱动的周期性兜底路径。
+ * 曲目没变且重发窗口未到时直接返回 false，避免白拼一遍整段 LRC。
  */
-internal fun hasValidLyricContent(lyrics: List<LyricEntry>): Boolean {
-    return lyrics.any { it.text.trim().isNotBlank() }
+internal fun shouldRefreshAtomicLyricEvent(
+    mediaId: String,
+    lastMediaId: String?,
+    lastSentAtElapsedRealtimeMs: Long,
+    nowElapsedRealtimeMs: Long,
+    resendIntervalMs: Long = ATOMIC_LYRIC_RESEND_INTERVAL_MS
+): Boolean {
+    if (mediaId != lastMediaId) return true
+    if (lastSentAtElapsedRealtimeMs <= 0L) return true
+    return nowElapsedRealtimeMs - lastSentAtElapsedRealtimeMs >= resendIntervalMs
+}
+
+/**
+ * 是否真正发送 `lrc_change`。
+ *
+ * 没有整段歌词时返回 false —— 绝不推空 Bundle，那会把组件已经收到的 extras 清掉。
+ */
+internal fun shouldSendAtomicLyricEvent(
+    wholeLrc: String,
+    signature: String,
+    lastSignature: String?,
+    lastSentAtElapsedRealtimeMs: Long,
+    nowElapsedRealtimeMs: Long,
+    resendIntervalMs: Long = ATOMIC_LYRIC_RESEND_INTERVAL_MS
+): Boolean {
+    if (wholeLrc.isEmpty()) return false
+    if (signature != lastSignature) return true
+    if (lastSentAtElapsedRealtimeMs <= 0L) return true
+    return nowElapsedRealtimeMs - lastSentAtElapsedRealtimeMs >= resendIntervalMs
 }

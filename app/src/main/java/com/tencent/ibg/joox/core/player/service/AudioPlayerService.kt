@@ -30,7 +30,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.ContextWrapper
@@ -45,12 +44,14 @@ import android.hardware.usb.UsbManager
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaMetadata
+import android.media.browse.MediaBrowser
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.os.SystemClock
+import android.service.media.MediaBrowserService
 import android.util.TypedValue
 import android.view.KeyEvent
 import androidx.annotation.DrawableRes
@@ -91,25 +92,21 @@ import com.tencent.ibg.joox.core.player.audio.focus.StartupAudioFocusController
 import com.tencent.ibg.joox.core.player.lifecycle.recoverUsbExclusivePlaybackIfUnhealthy
 import com.tencent.ibg.joox.core.player.lifecycle.scheduleUsbExclusivePlaybackResumeAfterDeviceAttach
 import com.tencent.ibg.joox.core.player.lifecycle.stopPlaybackAfterUsbExclusiveNativeFailure
-import com.tencent.ibg.joox.core.player.metadata.EXTRA_LYRIC
-import com.tencent.ibg.joox.core.player.metadata.EXTRA_LYRIC_IS_ALLOWED
-import com.tencent.ibg.joox.core.player.metadata.EXTRA_NOTICE_CAR
-import com.tencent.ibg.joox.core.player.metadata.LYRIC_STATUS_HAS_LYRIC
-import com.tencent.ibg.joox.core.player.metadata.LYRIC_STATUS_NO_LYRIC
-import com.tencent.ibg.joox.core.player.metadata.METADATA_KEY_LYRICS_LINE
-import com.tencent.ibg.joox.core.player.metadata.METADATA_KEY_LYRICS_STATUS
-import com.tencent.ibg.joox.core.player.metadata.METADATA_KEY_LYRICS_WHOLE
-import com.tencent.ibg.joox.core.player.metadata.METADATA_KEY_UCAR_LYRICS_LINE
 import com.tencent.ibg.joox.core.player.metadata.METADATA_KEY_UCAR_LYRICS_STATUS
 import com.tencent.ibg.joox.core.player.metadata.METADATA_KEY_UCAR_LYRICS_WHOLE
+import com.tencent.ibg.joox.core.player.metadata.METADATA_KEY_VIVOMIX_SUPPORT_EVENT
+import com.tencent.ibg.joox.core.player.metadata.UCAR_LYRICS_STATUS_HAS_LYRIC
 import com.tencent.ibg.joox.core.player.metadata.VIVOMIX_ACTION_KEY
 import com.tencent.ibg.joox.core.player.metadata.VIVOMIX_ACTION_LRC_CHANGE
 import com.tencent.ibg.joox.core.player.metadata.VIVOMIX_LYRIC_KEY
 import com.tencent.ibg.joox.core.player.metadata.VIVOMIX_MEDIA_ID_KEY
+import com.tencent.ibg.joox.core.player.metadata.VIVOMIX_SUPPORT_EVENT_ALL
+import com.tencent.ibg.joox.core.player.metadata.VIVO_MUSIC_WIDGET_SERVICE_ACTION
+import com.tencent.ibg.joox.core.player.metadata.buildAtomicLyricSignature
 import com.tencent.ibg.joox.core.player.metadata.buildCarLyricWhole
-import com.tencent.ibg.joox.core.player.metadata.hasValidLyricContent
-import com.tencent.ibg.joox.core.player.metadata.resolveCarLyricLine
 import com.tencent.ibg.joox.core.player.metadata.resolveExternalBluetoothMetadataText
+import com.tencent.ibg.joox.core.player.metadata.shouldRefreshAtomicLyricEvent
+import com.tencent.ibg.joox.core.player.metadata.shouldSendAtomicLyricEvent
 import com.tencent.ibg.joox.core.player.metadata.shouldUseExternalBluetoothLyrics
 import com.tencent.ibg.joox.core.player.persistence.persistStateNow
 import com.tencent.ibg.joox.core.player.persistence.preloadRestoredStateSnapshot
@@ -555,7 +552,7 @@ private fun Context.findActivityReadyForDirectServiceStart(): Activity? {
 }
 
 @Suppress("unused")
-class AudioPlayerService : Service() {
+class AudioPlayerService : MediaBrowserService() {
 
     companion object {
         const val ACTION_PLAY = "com.tencent.ibg.joox.action.PLAY"
@@ -576,6 +573,8 @@ class AudioPlayerService : Service() {
 
         private const val NOTIFICATION_ID = 1
         private const val CHANNEL_ID = "neriplayer_playback_channel"
+        // 空浏览根：MediaBrowser 客户端（原子随身听 / 车机）只需要连上取 session token
+        private const val MEDIA_BROWSER_EMPTY_ROOT_ID = "neriplayer_root"
         private const val SYNC_START_DEDUPE_WINDOW_MS = 1500L
         @Volatile
         private var lastSuccessfulSyncStartElapsedRealtime: Long = 0L
@@ -756,6 +755,10 @@ class AudioPlayerService : Service() {
     private var isForegroundStarted = false
     private var lastNotificationSnapshot: PlaybackNotificationSnapshot? = null
     private var lastMetadataSnapshot: PlaybackMetadataSnapshot? = null
+    // 原子随身听 lrc_change 事件去重状态：指纹变化立刻发，否则等重发窗口
+    private var lastAtomicLyricSignature: String? = null
+    private var lastAtomicLyricMediaId: String? = null
+    private var lastAtomicLyricSentAtElapsedRealtimeMs: Long = 0L
     private var lastPlaybackWidgetState: PlaybackWidgetState? = null
     private var statusBarLyricState = resolveStatusBarLyricNotificationState(
         enabled = false,
@@ -1362,6 +1365,12 @@ class AudioPlayerService : Service() {
             setPlaybackToLocal(mediaSessionAudioAttributes)
             isActive = true
         }
+        // 原子随身听 / 车机通过 MediaBrowserService 连接后取 session token，
+        // 必须在任何客户端连上之前设置好，否则 onConnected 拿到空 token。
+        runCatching { setSessionToken(mediaSession.sessionToken) }
+            .onFailure { error ->
+                NPLogger.w("NERI-APS", "media browser session token setup failed", error)
+            }
         UsbExclusiveSystemVolumeBridge.clearSessionVolumeFraction()
         if (!startForegroundImmediately(buildBootstrapNotification(), "service_create")) {
             handleForegroundPromotionFailure("service_create")
@@ -1579,6 +1588,8 @@ class AudioPlayerService : Service() {
                 .distinctUntilChanged()
                 .collectSafely("playbackPositionFlow") {
                     updatePlaybackState()
+                    // 原子随身听 lrc_change 兜底重发（内部有 25s 窗口，未到时零开销返回）
+                    refreshAtomicLyricEvent()
                 }
         }
         serviceScope.launch {
@@ -2414,13 +2425,7 @@ class AudioPlayerService : Service() {
             payload = lyricPayload,
             useBluetoothLyrics = useBluetoothLyrics
         )
-        val isSongMatch = song != null && PlayerManager.externalBluetoothLyricsSongKey == song.stableKey()
-        val carLyrics = if (isSongMatch) PlayerManager.externalBluetoothLyrics else emptyList()
-        val currentCarLyricWhole = if (PlayerManager.carLyricEnabled) {
-            buildCarLyricWhole(carLyrics)
-        } else {
-            ""
-        }
+        val currentCarLyricWhole = resolveCarLyricWhole(song)
 
         val snapshot = PlaybackMetadataSnapshot(
             songKey = songKey,
@@ -2469,72 +2474,120 @@ class AudioPlayerService : Service() {
         // to attempt loading them directly (which can fail due to permission issues) and
         // override the bitmap we already provided via METADATA_KEY_ALBUM_ART
 
-        pushCarLyricMetadata(
-            song = song,
+        applyCarLyricMetadata(
             metadataBuilder = metadataBuilder,
-            lyricLine = lyricPayload.lyric
+            wholeLrc = currentCarLyricWhole
         )
         mediaSession.setMetadata(metadataBuilder.build())
+        // 整段歌词/曲目变化后立刻补发一次原子随身听事件：切歌时推的那次 metadata
+        // 必定还没歌词（歌词异步加载），不补发组件永远拿不到 LRC。
+        pushAtomicLyricEvent()
     }
 
     /**
-     * 车载投屏歌词推送（vivo 车联）。
+     * 车联投屏（ucar / joviincar）歌词注入 —— 纯增量装饰器。
      *
-     * 当 carLyricEnabled 开启时：
-     * 1. Metadata 双写裸键 + ucar.media.metadata. 前缀的 LYRICS_LINE / LYRICS_WHOLE / LYRICS_STATUS
-     * 2. setExtras 写 music.media.extras.* 与 vivomusicmix 协议键
+     * 只写整段 LRC，车机自己按 [PlaybackState] 进度滚动多行。
+     * 不写 `LYRICS_LINE`、不写 `music.media.extras.*`：那两者是单行模式的协议信号，
+     * 车机收到就切单行卡片并忽略整段歌词。
      *
-     * 优先级说明：车载歌词开启时灵动岛歌词不再覆盖 TITLE（见 updateMetadata 的
-     * forceSendLyrics 逻辑），避免车机读 TITLE 时显示错误。
+     * 歌词未就绪时只声明能力位，**绝不写** `LYRICS_STATUS` 负状态 —— 车机把 1/2 理解为
+     * 「本曲确认无歌词」，会永久退回单行模式，之后再推整段歌词也没用。
      */
-    private fun pushCarLyricMetadata(
-        song: SongItem?,
+    private fun applyCarLyricMetadata(
         metadataBuilder: MediaMetadata.Builder,
-        lyricLine: String?
+        wholeLrc: String
     ) {
         if (!PlayerManager.carLyricEnabled) {
             return
         }
 
-        val isSongMatch = song != null && PlayerManager.externalBluetoothLyricsSongKey == song.stableKey()
-        val carLyrics = if (isSongMatch) PlayerManager.externalBluetoothLyrics else emptyList()
-        val wholeLrc = buildCarLyricWhole(carLyrics)
-        val status = if (isSongMatch && hasValidLyricContent(carLyrics)) {
-            LYRIC_STATUS_HAS_LYRIC
-        } else {
-            LYRIC_STATUS_NO_LYRIC
-        }
-        val safeLine = if (isSongMatch) {
-            lyricLine ?: resolveCarLyricLine(
-                lyrics = carLyrics,
-                positionMs = PlayerManager.playbackPositionFlow.value
-            )
-        } else {
-            ""
-        }
+        // 原子随身听能力位：31 = 播控 | 歌词 | 进度条，缺歌词位组件不显示歌词区。
+        // 与歌词是否就绪无关，可以先声明。
+        metadataBuilder.putLong(METADATA_KEY_VIVOMIX_SUPPORT_EVENT, VIVOMIX_SUPPORT_EVENT_ALL)
 
-        // 无歌词时写空串（勿写 -1），与车机协议约定一致
+        if (wholeLrc.isEmpty()) {
+            return
+        }
         metadataBuilder
-            .putString(METADATA_KEY_LYRICS_LINE, safeLine.orEmpty())
-            .putString(METADATA_KEY_UCAR_LYRICS_LINE, safeLine.orEmpty())
-            .putString(METADATA_KEY_LYRICS_WHOLE, wholeLrc)
             .putString(METADATA_KEY_UCAR_LYRICS_WHOLE, wholeLrc)
-            .putString(METADATA_KEY_LYRICS_STATUS, status)
-            .putString(METADATA_KEY_UCAR_LYRICS_STATUS, status)
+            .putLong(METADATA_KEY_UCAR_LYRICS_STATUS, UCAR_LYRICS_STATUS_HAS_LYRIC)
+    }
+
+    /**
+     * 原子随身听（vivomusicmix 音乐小组件）歌词推送。
+     *
+     * 走 `MediaSession.setExtras()` 的 `lrc_change` 事件通道，内容同样是整段 LRC，
+     * 组件自己按进度滚动。没有整段歌词时直接返回 —— 绝不推空 Bundle，
+     * 那会把组件已经收到的 extras 清掉。
+     */
+    private fun pushAtomicLyricEvent() {
+        if (!PlayerManager.carLyricEnabled || !this::mediaSession.isInitialized) {
+            return
+        }
+        val song = playbackSurfaceSong() ?: return
+        val mediaId = song.stableKey()
+        val wholeLrc = resolveCarLyricWhole(song)
+        val nowElapsedRealtimeMs = SystemClock.elapsedRealtime()
+        val signature = buildAtomicLyricSignature(mediaId = mediaId, wholeLrc = wholeLrc)
+        if (
+            !shouldSendAtomicLyricEvent(
+                wholeLrc = wholeLrc,
+                signature = signature,
+                lastSignature = lastAtomicLyricSignature,
+                lastSentAtElapsedRealtimeMs = lastAtomicLyricSentAtElapsedRealtimeMs,
+                nowElapsedRealtimeMs = nowElapsedRealtimeMs
+            )
+        ) {
+            return
+        }
 
         val extras = Bundle().apply {
-            putString(EXTRA_LYRIC, safeLine.orEmpty())
-            putBoolean(EXTRA_LYRIC_IS_ALLOWED, true)
-            putBoolean(EXTRA_NOTICE_CAR, true)
-
-            // vivomusicmix 协议：整首 LRC
             putString(VIVOMIX_ACTION_KEY, VIVOMIX_ACTION_LRC_CHANGE)
-            song?.let {
-                putString(VIVOMIX_MEDIA_ID_KEY, it.stableKey())
-            }
+            putString(VIVOMIX_MEDIA_ID_KEY, mediaId)
             putString(VIVOMIX_LYRIC_KEY, wholeLrc)
         }
-        mediaSession.setExtras(extras)
+        runCatching { mediaSession.setExtras(extras) }
+            .onFailure { error ->
+                NPLogger.w("NERI-APS", "atomic lyric extras push failed", error)
+                return
+            }
+        lastAtomicLyricSignature = signature
+        lastAtomicLyricMediaId = mediaId
+        lastAtomicLyricSentAtElapsedRealtimeMs = nowElapsedRealtimeMs
+    }
+
+    /**
+     * 周期性兜底重发，覆盖「车机 / 小组件在播放开始之后才连上」的场景。
+     * 曲目未变且重发窗口未到时连整段 LRC 都不拼，保持热路径零开销。
+     */
+    private fun refreshAtomicLyricEvent() {
+        if (!PlayerManager.carLyricEnabled) {
+            return
+        }
+        val mediaId = playbackSurfaceSong()?.stableKey() ?: return
+        if (
+            !shouldRefreshAtomicLyricEvent(
+                mediaId = mediaId,
+                lastMediaId = lastAtomicLyricMediaId,
+                lastSentAtElapsedRealtimeMs = lastAtomicLyricSentAtElapsedRealtimeMs,
+                nowElapsedRealtimeMs = SystemClock.elapsedRealtime()
+            )
+        ) {
+            return
+        }
+        pushAtomicLyricEvent()
+    }
+
+    /** 当前曲目的整段 LRC；歌词属于别的曲目或车载歌词关闭时返回空串。 */
+    private fun resolveCarLyricWhole(song: SongItem?): String {
+        if (!PlayerManager.carLyricEnabled || song == null) {
+            return ""
+        }
+        if (PlayerManager.externalBluetoothLyricsSongKey != song.stableKey()) {
+            return ""
+        }
+        return buildCarLyricWhole(PlayerManager.externalBluetoothLyrics)
     }
 
     private fun resolveCoverSourceAsyncIfNeeded(
@@ -2898,7 +2951,37 @@ class AudioPlayerService : Service() {
             .onFailure { NPLogger.w("NERI-APS", "playback stats flush failed during $context", it) }
     }
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    override fun onBind(intent: Intent?): IBinder? {
+        val bindIntent = intent ?: return null
+        // 原子随身听用 vivo 私有 action 发现服务。万一它直接拿该 action 绑定，
+        // 框架的 onBind 只认标准 action 会返回 null，这里归一化一次兜底。
+        val browserIntent = if (bindIntent.action == VIVO_MUSIC_WIDGET_SERVICE_ACTION) {
+            Intent(bindIntent).setAction(MediaBrowserService.SERVICE_INTERFACE)
+        } else {
+            bindIntent
+        }
+        // 其余绑定请求交给框架处理（非浏览动作返回 null，本服务不提供自定义 Binder）
+        return super.onBind(browserIntent)
+    }
+
+    /**
+     * 原子随身听 / 车机通过 MediaBrowser 连接进来只为拿 session token，
+     * 因此给一个空的浏览根：允许连接，但不对外暴露任何媒体库内容。
+     */
+    override fun onGetRoot(
+        clientPackageName: String,
+        clientUid: Int,
+        rootHints: Bundle?
+    ): BrowserRoot {
+        return BrowserRoot(MEDIA_BROWSER_EMPTY_ROOT_ID, null)
+    }
+
+    override fun onLoadChildren(
+        parentId: String,
+        result: MediaBrowserService.Result<MutableList<MediaBrowser.MediaItem>>
+    ) {
+        result.sendResult(mutableListOf())
+    }
 
     override fun onDestroy() {
         NPLogger.w(

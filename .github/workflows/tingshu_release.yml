@@ -1,0 +1,218 @@
+name: Tingshu Package Release
+
+# 单包名发布：以 applicationId = bubei.tingshu 出一个 arm64-v8a 签名 APK。
+#
+# 触发方式：
+#   1. 打 tag：git tag -a tingshu-v1.0.0 -m "..." && git push origin tingshu-v1.0.0
+#   2. 手动：Actions -> Tingshu Package Release -> Run workflow（workflow 需已在默认分支）
+#
+# 签名：仓库内置 app/joox-release.keystore（build.gradle.kts 有默认口令），
+# 无需额外 secrets。
+
+on:
+  push:
+    tags:
+      - 'tingshu-v*'
+  workflow_dispatch:
+    inputs:
+      app_id:
+        description: applicationId (default bubei.tingshu)
+        required: false
+        default: bubei.tingshu
+        type: string
+      release_tag:
+        description: Release tag name (empty = auto generate tingshu-<sha>.<time>)
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tingshu-package-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build signed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Resolve build metadata
+        id: meta
+        env:
+          INPUT_APP_ID: ${{ inputs.app_id }}
+          INPUT_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          short_sha="$(git rev-parse --short HEAD)"
+          target_sha="$(git rev-parse HEAD)"
+          release_time="$(TZ=Asia/Taipei date +'%m%d%H%M')"
+          app_id="${INPUT_APP_ID:-bubei.tingshu}"
+
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag_name="${GITHUB_REF_NAME}"
+          elif [ -n "${INPUT_TAG}" ]; then
+            tag_name="${INPUT_TAG}"
+          else
+            tag_name="tingshu-${short_sha}.${release_time}"
+          fi
+
+          {
+            echo "app_id=${app_id}"
+            echo "tag_name=${tag_name}"
+            echo "release_time=${release_time}"
+            echo "target_sha=${target_sha}"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "app_id=${app_id} tag=${tag_name} time=${release_time} sha=${target_sha}"
+
+      - name: Grant execute permission
+        run: chmod +x gradlew
+
+      - name: Run car lyric unit tests
+        run: |
+          ./gradlew :app:testDebugUnitTest \
+            --tests "*CarLyricUtils*" \
+            --tests "*ExternalBluetoothLyrics*" \
+            --warning-mode all --stacktrace
+
+      - name: Build signed Release APK (arm64-v8a)
+        env:
+          APP_ID: ${{ steps.meta.outputs.app_id }}
+        run: |
+          ./gradlew :app:assembleRelease \
+            -PbuildVersionTimestamp=${{ steps.meta.outputs.release_time }} \
+            --warning-mode all --stacktrace
+
+      - name: Collect APK
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          apk_files=(app/build/outputs/apk/release/*.apk)
+          if [ "${#apk_files[@]}" -eq 0 ]; then
+            echo "No APK produced"
+            exit 1
+          fi
+
+          mkdir -p dist
+          target="dist/NeriPlayer-${{ steps.meta.outputs.tag_name }}-${{ steps.meta.outputs.app_id }}-arm64-v8a.apk"
+          cp "${apk_files[0]}" "$target"
+          ls -lh "$target"
+          sha256sum "$target"
+
+      - name: Verify applicationId and vivo lyric protocol fields
+        env:
+          EXPECTED_APP_ID: ${{ steps.meta.outputs.app_id }}
+        run: |
+          set -euo pipefail
+          apk="dist/NeriPlayer-${{ steps.meta.outputs.tag_name }}-${{ steps.meta.outputs.app_id }}-arm64-v8a.apk"
+          sdk_root="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          aapt2_bin="$(find "$sdk_root/build-tools" -name aapt2 2>/dev/null | sort | tail -n 1 || true)"
+
+          if [ -n "$aapt2_bin" ]; then
+            actual="$("$aapt2_bin" dump packagename "$apk" | tr -d '\r\n')"
+            echo "packagename = $actual"
+            if [ "$actual" != "$EXPECTED_APP_ID" ]; then
+              echo "applicationId mismatch: expected $EXPECTED_APP_ID, got $actual"
+              exit 1
+            fi
+            "$aapt2_bin" dump xmltree --file AndroidManifest.xml "$apk" > /tmp/manifest.txt
+            for action in \
+              android.media.browse.MediaBrowserService \
+              com.vivo.musicwidgetmix.support.service; do
+              if ! grep -qF "$action" /tmp/manifest.txt; then
+                echo "manifest is missing required action: $action"
+                exit 1
+              fi
+              echo "manifest action present: $action"
+            done
+          else
+            echo "aapt2 not found, skip manifest verification"
+          fi
+
+          # 字段级验证：整段歌词通道必须在，单行模式协议信号必须不在
+          unzip -o -q "$apk" -d /tmp/apk_dex 'classes*.dex'
+          cat /tmp/apk_dex/classes*.dex > /tmp/all.dex
+          for key in \
+            ucar.media.metadata.LYRICS_WHOLE \
+            vivomusicmix.media.metadata.support_event \
+            vivomusicmix.meida.extra.key.action \
+            vivomusicmix.extra.key.meidia_id \
+            vivomusicmix.extra.key.lyric; do
+            if ! strings /tmp/all.dex | grep -qF "$key"; then
+              echo "required protocol key missing: $key"
+              exit 1
+            fi
+            echo "protocol key present: $key"
+          done
+          for key in \
+            ucar.media.metadata.LYRICS_LINE \
+            music.media.extras.LYRIC \
+            music.media.extras.NOTICE_CAR; do
+            if strings /tmp/all.dex | grep -qF "$key"; then
+              echo "single-line protocol signal must be removed: $key"
+              exit 1
+            fi
+            echo "single-line signal absent: $key"
+          done
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-tingshu
+          path: dist/*.apk
+          if-no-files-found: error
+
+      - name: Compose release notes
+        run: |
+          set -euo pipefail
+          {
+            echo "vivo 原子随身听（vivomusicmix 音乐小组件）+ 车联投屏（ucar）滚动歌词适配包。"
+            echo
+            echo "- applicationId: \`${{ steps.meta.outputs.app_id }}\`"
+            echo "- Commit: \`${{ steps.meta.outputs.target_sha }}\`"
+            echo "- 签名: CN=JOOX Car (v2/v3)"
+            echo "- ABI: arm64-v8a"
+            echo
+            echo "## 协议要点"
+            echo
+            echo "- 原子随身听: manifest 声明 \`com.vivo.musicwidgetmix.support.service\`，metadata 带"
+            echo "  \`vivomusicmix.media.metadata.support_event=31\`，整段 LRC 走 \`setExtras\` 的 \`lrc_change\` 事件"
+            echo "- 车联投屏: 只写 \`ucar.media.metadata.LYRICS_WHOLE\` + \`LYRICS_STATUS=0\`，车机自行滚动"
+            echo "- 已移除单行模式信号 \`LYRICS_LINE\` 与 \`music.media.extras.*\`"
+            echo
+            echo "## 产物"
+            echo
+            echo "| 文件 | 大小 | SHA-256 |"
+            echo "| --- | --- | --- |"
+            for f in dist/*.apk; do
+              echo "| $(basename "$f") | $(du -h "$f" | cut -f1) | \`$(sha256sum "$f" | cut -d' ' -f1)\` |"
+            done
+          } > release-notes.md
+          cat release-notes.md
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          target_commitish: ${{ steps.meta.outputs.target_sha }}
+          name: ${{ steps.meta.outputs.tag_name }} (${{ steps.meta.outputs.app_id }})
+          body_path: release-notes.md
+          files: dist/*.apk
+          make_latest: false

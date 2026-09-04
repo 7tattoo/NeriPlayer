@@ -154,11 +154,17 @@
         </receiver>
         <service
             android:name="com.tencent.ibg.joox.core.player.service.AudioPlayerService"
-            android:exported="false"
+            android:exported="true"
             android:stopWithTask="false"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+            <!-- MediaBrowserService: 车机 / 音乐小组件通过它连接并取 MediaSession token；
+                 com.vivo.musicwidgetmix.support.service 是原子随身听的服务发现 action -->
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+                <action android:name="com.vivo.musicwidgetmix.support.service" />
             </intent-filter>
         </service>
 
