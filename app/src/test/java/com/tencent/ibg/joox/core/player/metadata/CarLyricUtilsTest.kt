@@ -161,6 +161,23 @@ class CarLyricUtilsTest {
     }
 
     @Test
+    fun `atomic lyric support is limited to verified packages`() {
+        // 第二层门槛：原子随身听内置支持应用列表。避开专用控制器只是必要条件，
+        // 实机确认能出歌词的只有这两个包名
+        assertEquals(
+            setOf("com.apple.android.music", "com.spotify.music"),
+            ATOMIC_LYRIC_VERIFIED_PACKAGES
+        )
+        for (pkg in ATOMIC_LYRIC_VERIFIED_PACKAGES) {
+            // 已验证的包名必然也通过第一层门槛
+            assertTrue(supportsAtomicCooperateController(pkg))
+        }
+        // 通过第一层不等于承诺原子歌词
+        assertTrue(supportsAtomicCooperateController("com.tencent.wecarflow"))
+        assertFalse("com.tencent.wecarflow" in ATOMIC_LYRIC_VERIFIED_PACKAGES)
+    }
+
+    @Test
     fun `refresh gate stays cheap until the track changes or the window elapses`() {
         assertTrue(
             shouldRefreshAtomicLyricEvent(

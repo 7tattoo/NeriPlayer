@@ -133,10 +133,29 @@ val ATOMIC_DEDICATED_CONTROLLER_PACKAGES: Set<String> = setOf(
  *
  * 前提是同时声明了 [VIVO_MUSIC_WIDGET_SERVICE_ACTION]；本函数只负责排除
  * [ATOMIC_DEDICATED_CONTROLLER_PACKAGES] 里那些被硬编码劫走的包名。
+ *
+ * 注意通过本检查**不代表**原子随身听一定显示歌词，还有第二层门槛见
+ * [ATOMIC_LYRIC_VERIFIED_PACKAGES]。
  */
 fun supportsAtomicCooperateController(applicationId: String): Boolean {
     return applicationId.isNotBlank() && applicationId !in ATOMIC_DEDICATED_CONTROLLER_PACKAGES
 }
+
+/**
+ * 实机验证过原子随身听歌词可用的 applicationId（2026-09-05）。
+ *
+ * 第二层门槛：原子随身听自身带一份**内置支持应用列表**（`t4/m0.java` 的三个 list），
+ * 未列入的包名即使避开了 [ATOMIC_DEDICATED_CONTROLLER_PACKAGES]、也声明了
+ * [VIVO_MUSIC_WIDGET_SERVICE_ACTION]，组件仍然不会把它识别成可用音乐源，
+ * 所以歌词区不出现。这两个包名在那三个 list 里都在。
+ *
+ * 车联投屏（ucar）没有这层限制 —— 只要写对 [METADATA_KEY_UCAR_LYRICS_WHOLE]，
+ * 任意包名都能出滚动歌词（10 个发布包名均已实机验证）。
+ */
+val ATOMIC_LYRIC_VERIFIED_PACKAGES: Set<String> = setOf(
+    "com.apple.android.music",
+    "com.spotify.music"
+)
 
 /**
  * 把歌词行列表拼成标准 LRC：`[mm:ss.SSS]歌词文本`，逐行以 `\n` 分隔。

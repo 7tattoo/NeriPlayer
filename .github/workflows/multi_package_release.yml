@@ -3,6 +3,13 @@ name: Multi Package Release
 # 多包名发布：同一份代码用不同 applicationId 各出一个 arm64-v8a APK，
 # 全部 APK 合并上传到同一个 GitHub Release。
 #
+# 功能分级（2026-09-05 实机验证结论）：
+#   - 车联投屏歌词（ucar，整段 LRC 滚动）：**全部 10 个包名均正常**
+#   - 原子随身听歌词（vivomusicmix 音乐小组件）：**仅 com.apple.android.music
+#     与 com.spotify.music 正常**。原因是原子随身听除了「避开硬编码专用控制器」
+#     之外，还有一份内置支持应用列表（反编译 6.2.5.6 的 t4/m0.java），
+#     未列入的包名不会被识别成可用音乐源，歌词区不出现。
+#
 # 触发方式：
 #   1. 打 tag：git tag -a multi-v1.0.0 -m "..." && git push origin multi-v1.0.0
 #   2. 手动：Actions -> Multi Package Release -> Run workflow
@@ -115,6 +122,13 @@ jobs:
       - name: Grant execute permission
         run: chmod +x gradlew
 
+      - name: Run car lyric unit tests
+        run: |
+          ./gradlew :app:testDebugUnitTest \
+            --tests "*CarLyricUtils*" \
+            --tests "*ExternalBluetoothLyrics*" \
+            --warning-mode all --stacktrace
+
       - name: Build signed Release APK (arm64-v8a)
         env:
           APP_ID: ${{ matrix.app_id }}
@@ -160,6 +174,75 @@ jobs:
             exit 1
           fi
 
+      - name: Validate package-specific lyric protocols
+        env:
+          APP_ID: ${{ matrix.app_id }}
+        run: |
+          set -euo pipefail
+          apk="dist/NeriPlayer-${{ needs.prepare.outputs.tag_name }}-${{ matrix.app_id }}-arm64-v8a.apk"
+
+          rm -rf /tmp/apk_dex && mkdir -p /tmp/apk_dex
+          unzip -o -q "$apk" -d /tmp/apk_dex 'classes*.dex'
+          cat /tmp/apk_dex/classes*.dex > /tmp/all.dex
+
+          require_key() {
+            key="$1"; why="$2"
+            # grep -q 会在命中后立即退出，上游 strings 收到 SIGPIPE 返回 141，
+            # set -o pipefail 会把整条管道判为失败 —— 所以这里必须用计数而非 -q
+            hits="$(strings /tmp/all.dex | grep -Fc -- "$key" || true)"
+            if [ "${hits:-0}" -eq 0 ]; then
+              echo "::error::缺少协议字段 $key（$why）"
+              exit 1
+            fi
+            echo "  OK   $key"
+          }
+          forbid_key() {
+            key="$1"; why="$2"
+            hits="$(strings /tmp/all.dex | grep -Fc -- "$key" || true)"
+            if [ "${hits:-0}" -ne 0 ]; then
+              echo "::error::禁止出现的单行模式信号 $key（$why）"
+              exit 1
+            fi
+            echo "  OK   $key（已移除）"
+          }
+
+          echo "== 车联投屏（ucar）：全部包名都必须保证 =="
+          require_key ucar.media.metadata.LYRICS_WHOLE "整段 LRC，车机据此滚动多行"
+          forbid_key ucar.media.metadata.LYRICS_LINE "单行模式信号，车机收到就切单行卡片"
+          forbid_key music.media.extras.LYRIC "单行通道"
+          forbid_key music.media.extras.LYRIC_IS_ALLOWED "单行通道"
+          forbid_key music.media.extras.NOTICE_CAR "单行通道开关"
+
+          # 原子随身听只对实机验证过的两个包名承诺，其余包名不校验（协议字段仍在，
+          # 只是原子随身听的内置支持列表不含那些包名，不保证显示）
+          case "$APP_ID" in
+            com.apple.android.music|com.spotify.music)
+              echo "== 原子随身听（vivomusicmix）：本包名承诺可用，校验协议字段 =="
+              aapt2_bin="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" -name aapt2 2>/dev/null | sort | tail -n 1 || true)"
+              if [ -n "$aapt2_bin" ]; then
+                "$aapt2_bin" dump xmltree --file AndroidManifest.xml "$apk" > /tmp/manifest.txt
+                for action in \
+                  android.media.browse.MediaBrowserService \
+                  com.vivo.musicwidgetmix.support.service; do
+                  if ! grep -Fc -- "$action" /tmp/manifest.txt > /dev/null; then
+                    echo "::error::manifest 缺少 action $action"
+                    exit 1
+                  fi
+                  echo "  OK   manifest action $action"
+                done
+              fi
+              require_key vivomusicmix.media.metadata.support_event "能力位 31 = 播控|歌词|进度条"
+              require_key vivomusicmix.meida.extra.key.action "lrc_change 事件键（官方 typo）"
+              require_key vivomusicmix.extra.lrc_change "整段歌词事件"
+              require_key vivomusicmix.extra.key.meidia_id "必须等于 metadata 的 MEDIA_ID"
+              require_key vivomusicmix.extra.key.lyric "整段 LRC 内容"
+              require_key android.media.metadata.MEDIA_ID "MusicWidgetManager.refreshLrc 比对依据"
+              ;;
+            *)
+              echo "== 原子随身听：$APP_ID 未在实机验证名单内，跳过（只承诺车联投屏歌词）=="
+              ;;
+          esac
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -199,15 +282,40 @@ jobs:
             echo "- 签名: CN=JOOX Car (v2/v3)"
             echo "- ABI: arm64-v8a"
             echo
+            echo "## 功能分级（实机验证）"
+            echo
+            echo "| 功能 | 支持范围 |"
+            echo "| --- | --- |"
+            echo "| **车联投屏歌词**（vivo 车联 / JoviInCar，整段 LRC 滚动） | 全部 10 个包名 |"
+            echo "| **原子随身听歌词**（vivomusicmix 音乐小组件） | 仅 \`com.apple.android.music\` 与 \`com.spotify.music\` |"
+            echo
+            echo "原子随身听除了要求包名避开硬编码专用控制器（\`bubei.tingshu\` / \`com.tencent.qqmusic\` /"
+            echo "\`com.kugou.android\` / \`com.netease.cloudmusic\` 等会被塞进专用控制器，协议一律无效），"
+            echo "还有一份内置支持应用列表（反编译原子随身听 6.2.5.6 的 \`t4/m0.java\`）。"
+            echo "未列入的包名即使协议字段全对，组件也不会把它识别成可用音乐源，歌词区不出现。"
+            echo "车联投屏没有这层限制，任意包名写对 \`ucar.media.metadata.LYRICS_WHOLE\` 即可。"
+            echo
+            echo "## 协议要点"
+            echo
+            echo "- 车联投屏：只写 \`ucar.media.metadata.LYRICS_WHOLE\` + \`LYRICS_STATUS=0\`（Long），"
+            echo "  车机按 PlaybackState 进度自行滚动；已移除单行模式信号 \`LYRICS_LINE\` 与 \`music.media.extras.*\`"
+            echo "- 原子随身听：manifest 声明 \`com.vivo.musicwidgetmix.support.service\`，"
+            echo "  metadata 带 \`support_event=31\`（7 播控 | 8 歌词 | 16 进度条）与 \`android.media.metadata.MEDIA_ID\`，"
+            echo "  整段 LRC 走 \`setExtras\` 的 \`lrc_change\` 事件，\`meidia_id\` 与 MEDIA_ID 同源"
+            echo
             echo "## APK 列表"
             echo
-            echo "| applicationId | 文件 | 大小 |"
-            echo "| --- | --- | --- |"
+            echo "| applicationId | 原子随身听歌词 | 文件 | 大小 |"
+            echo "| --- | --- | --- | --- |"
             for f in dist/*.apk; do
               name="$(basename "$f")"
               size="$(du -h "$f" | cut -f1)"
               app_id="$(echo "$name" | sed -E 's/^NeriPlayer-.*-([A-Za-z0-9_.]+)-arm64-v8a\.apk$/\1/')"
-              echo "| \`${app_id}\` | ${name} | ${size} |"
+              case "$app_id" in
+                com.apple.android.music|com.spotify.music) atomic="✅ 已验证";;
+                *) atomic="— 仅车联投屏";;
+              esac
+              echo "| \`${app_id}\` | ${atomic} | ${name} | ${size} |"
             done
           } > release-notes.md
           cat release-notes.md
