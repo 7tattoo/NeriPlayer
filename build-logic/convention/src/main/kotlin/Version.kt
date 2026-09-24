@@ -6,11 +6,11 @@ import java.util.Properties
 object Version {
     val java = JavaVersion.VERSION_17
 
-    const val compileSdkVersion = 37
+    const val compileSdkVersion = 36
     const val minSdk = 28
     const val targetSdk = 36
 
-    private const val defaultNdkVersion = "27.0.12077973"
+    private const val defaultNdkVersion = "27.0.12479018"
     private const val defaultCMakeVersion = "3.28.0+"
 
     fun getNdkVersion(): String {

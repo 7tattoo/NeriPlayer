@@ -90,6 +90,7 @@ import com.tencent.ibg.joox.core.player.policy.command.PlaybackCommandSource
 import com.tencent.ibg.joox.core.player.policy.command.shouldClearResumePlaybackRequestOnPlayWhenReadyPause
 import com.tencent.ibg.joox.core.player.policy.command.shouldResumeSilentlyForListenTogetherNoisyPause
 import com.tencent.ibg.joox.core.player.policy.offload.requiresPcmAudioProcessing
+import com.tencent.ibg.joox.core.player.engine.HachimiAudioBridge
 import com.tencent.ibg.joox.core.player.policy.offload.shouldUpdateAudioOffloadForReactiveChange
 import com.tencent.ibg.joox.core.player.policy.pending.shouldAcceptPlayerCallback
 import com.tencent.ibg.joox.core.player.policy.pending.shouldExposePlayerCallbackState
@@ -1362,6 +1363,11 @@ internal fun PlayerManager.ensureInitializedImpl() {
 
 internal fun PlayerManager.updateAudioOffloadPreferences(reason: String) {
     if (!isPlayerInitialized()) return
+    // Hachimi 软件 DSP：均衡器开启或位深/采样率转换需要 PCM 管线
+    if (HachimiAudioBridge.offloadRequiresPcmPipeline()) {
+        return true
+    }
+
     val requiresPcmProcessing = requiresPcmAudioProcessing(
         usbExclusivePlaybackEnabled = usbExclusivePlaybackEnabled,
         playbackSpeed = playbackSoundConfig.speed,
