@@ -1,7 +1,7 @@
 package com.tencent.ibg.joox.core.player.engine
 
 import android.media.AudioDeviceInfo
-import android.media.audiofx.AuxEffectInfo
+import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
@@ -118,7 +118,8 @@ internal class SwitchableOutputAudioSink(
 
     override fun getAudioAttributes(): AudioAttributes = active.getAudioAttributes() ?: AudioAttributes.DEFAULT
 
-    override fun getAudioCapabilities(): AudioCapabilities = active.getAudioCapabilities() ?: AudioCapabilities.DEFAULT
+    override fun getAudioCapabilities(): AudioCapabilities =
+        active.getAudioCapabilities() ?: AudioCapabilities.DEFAULT_AUDIO_CAPABILITIES
 
     override fun setAudioSessionId(audioSessionId: Int) = active.setAudioSessionId(audioSessionId)
 
