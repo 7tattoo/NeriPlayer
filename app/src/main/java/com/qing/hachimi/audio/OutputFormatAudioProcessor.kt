@@ -168,10 +168,10 @@ class OutputFormatAudioProcessor(
 
     private fun targetEncoding(inputEncoding: @C.PcmEncoding Int): @C.PcmEncoding Int =
         when (settings.bitDepth) {
-            SettingsManager.BIT_DEPTH_16 -> C.ENCODING_PCM_16BIT
-            SettingsManager.BIT_DEPTH_24 -> C.ENCODING_PCM_24BIT
-            SettingsManager.BIT_DEPTH_32 -> C.ENCODING_PCM_32BIT
-            SettingsManager.BIT_DEPTH_FLOAT32 -> C.ENCODING_PCM_FLOAT
+            HACHIMI_BIT_DEPTH_16 -> C.ENCODING_PCM_16BIT
+            HACHIMI_BIT_DEPTH_24 -> C.ENCODING_PCM_24BIT
+            HACHIMI_BIT_DEPTH_32 -> C.ENCODING_PCM_32BIT
+            HACHIMI_BIT_DEPTH_FLOAT32 -> C.ENCODING_PCM_FLOAT
             else -> inputEncoding
         }
 
