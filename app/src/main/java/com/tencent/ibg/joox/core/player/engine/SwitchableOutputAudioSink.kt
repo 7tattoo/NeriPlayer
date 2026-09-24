@@ -12,8 +12,6 @@ import androidx.media3.exoplayer.analytics.PlayerId
 import androidx.media3.exoplayer.audio.AudioCapabilities
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.AudioOffloadSupport
-import androidx.media3.exoplayer.audio.AuxEffectInfo
-import androidx.media3.common.AuxEffectInfo
 import com.qing.hachimi.audio.OboeAudioSink
 import java.nio.ByteBuffer
 
@@ -169,11 +167,5 @@ internal class SwitchableOutputAudioSink(
     override fun release() {
         runCatching { trackSink.release() }
         runCatching { oboeSink.release() }
-    }
-
-    /** 双路都注册 aux 效果（Oboe 路径可能无操作，由 oboeSink 的实现决定） */
-    override fun setAuxEffectInfo(auxEffectInfo: androidx.media3.common.audio.AuxEffectInfo) {
-        trackSink.setAuxEffectInfo(auxEffectInfo)
-        oboeSink.setAuxEffectInfo(auxEffectInfo)
     }
 }

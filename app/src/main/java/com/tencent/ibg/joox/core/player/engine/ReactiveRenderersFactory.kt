@@ -68,7 +68,7 @@ class ReactiveRenderersFactory(context: Context) : DefaultRenderersFactory(conte
             .build()
 
         val oboeSink = OboeAudioSink(
-            audioApi = HachimiAudioBridge.Companion.OBOE_AUDIO_API_AAUDIO,
+            audioApi = OBOE_AUDIO_API_AAUDIO,
             exclusive = false,
             processors = emptyList(),  // 软效果由 trackSink 侧处理器链处理
             deviceId = 0
