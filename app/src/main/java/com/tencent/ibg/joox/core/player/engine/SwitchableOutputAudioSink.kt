@@ -1,6 +1,7 @@
 package com.tencent.ibg.joox.core.player.engine
 
 import android.media.AudioDeviceInfo
+import android.media.audiofx.AuxEffectInfo
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
@@ -93,7 +94,7 @@ internal class SwitchableOutputAudioSink(
 
     override fun isEnded(): Boolean = active.isEnded
 
-    override fun hasPendingData(): Boolean = active.hasPendingData
+    override fun hasPendingData(): Boolean = active.hasPendingData()
 
     override fun getCurrentPositionUs(sourceEnd: Boolean): Long =
         active.getCurrentPositionUs(sourceEnd)
@@ -115,9 +116,9 @@ internal class SwitchableOutputAudioSink(
     override fun setAudioAttributes(audioAttributes: AudioAttributes) =
         active.setAudioAttributes(audioAttributes)
 
-    override fun getAudioAttributes(): AudioAttributes = active.getAudioAttributes()
+    override fun getAudioAttributes(): AudioAttributes = active.getAudioAttributes() ?: AudioAttributes.DEFAULT
 
-    override fun getAudioCapabilities(): AudioCapabilities = active.getAudioCapabilities()
+    override fun getAudioCapabilities(): AudioCapabilities = active.getAudioCapabilities() ?: AudioCapabilities.DEFAULT
 
     override fun setAudioSessionId(audioSessionId: Int) = active.setAudioSessionId(audioSessionId)
 
@@ -135,14 +136,14 @@ internal class SwitchableOutputAudioSink(
 
     override fun setOffloadMode(offloadMode: Int) = active.setOffloadMode(offloadMode)
 
-    override fun setOffloadDelayPadding(delayUs: Long, paddingUs: Long) =
+    override fun setOffloadDelayPadding(delayUs: Int, paddingUs: Int) =
         active.setOffloadDelayPadding(delayUs, paddingUs)
 
     // ===== 监听/环境 =====
 
     override fun setListener(listener: AudioSink.Listener) = active.setListener(listener)
 
-    override fun setPlayerId(playerId: PlayerId) = active.setPlayerId(playerId)
+    override fun setPlayerId(playerId: PlayerId?) = active.setPlayerId(playerId)
 
     override fun setClock(clock: Clock) = active.setClock(clock)
 

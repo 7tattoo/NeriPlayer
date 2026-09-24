@@ -1365,7 +1365,7 @@ internal fun PlayerManager.updateAudioOffloadPreferences(reason: String) {
     if (!isPlayerInitialized()) return
     // Hachimi 软件 DSP：均衡器开启或位深/采样率转换需要 PCM 管线
     if (HachimiAudioBridge.offloadRequiresPcmPipeline()) {
-        return true
+        return
     }
 
     val requiresPcmProcessing = requiresPcmAudioProcessing(
