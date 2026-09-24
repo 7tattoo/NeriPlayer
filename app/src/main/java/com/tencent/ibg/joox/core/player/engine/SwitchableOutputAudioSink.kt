@@ -1,6 +1,8 @@
 package com.tencent.ibg.joox.core.player.engine
 
 import android.media.AudioDeviceInfo
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -135,8 +137,10 @@ internal class SwitchableOutputAudioSink(
 
     override fun disableTunneling() = active.disableTunneling()
 
+    @RequiresApi(29)
     override fun setOffloadMode(offloadMode: Int) = active.setOffloadMode(offloadMode)
 
+    @RequiresApi(29)
     override fun setOffloadDelayPadding(delayUs: Int, paddingUs: Int) =
         active.setOffloadDelayPadding(delayUs, paddingUs)
 
