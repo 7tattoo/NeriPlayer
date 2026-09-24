@@ -1,5 +1,6 @@
 @file:Suppress("UnstableApiUsage")
 
+import com.android.build.api.variant.FilterConfiguration
 import org.gradle.api.tasks.testing.Test
 import java.util.UUID
 
@@ -237,7 +238,16 @@ androidComponents {
         if (variant.buildType == "debug") return@onVariants
 
         variant.outputs.forEach { output ->
-            // output naming handled by AGP defaults
+            val abiSuffix = output.filters
+                .find { it.filterType == FilterConfiguration.FilterType.ABI }
+                ?.identifier
+                ?.let { "-$it" }
+                ?: ""
+            output.outputFileName.set(
+                output.versionName.orElse("dev").map { versionName ->
+                    "NeriPlayer-${versionName}-${resolvedApplicationId}${abiSuffix}.apk"
+                }
+            )
         }
     }
 }
