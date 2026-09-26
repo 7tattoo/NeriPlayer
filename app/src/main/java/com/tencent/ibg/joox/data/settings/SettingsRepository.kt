@@ -43,10 +43,8 @@ import com.tencent.ibg.joox.core.player.model.DEFAULT_PLAYBACK_VOLUME_BALANCE
 import com.tencent.ibg.joox.core.player.model.PlaybackEqualizerPresetId
 import com.tencent.ibg.joox.core.player.model.decodePlaybackEqualizerBandLevels
 import com.tencent.ibg.joox.core.player.model.encodePlaybackEqualizerBandLevels
-import com.tencent.ibg.joox.core.player.model.normalizePlaybackLoudnessGainMb
 import com.tencent.ibg.joox.core.player.model.normalizePlaybackPitch
 import com.tencent.ibg.joox.core.player.model.normalizePlaybackSpeed
-import com.tencent.ibg.joox.core.player.model.normalizePlaybackVolumeBalance
 import com.tencent.ibg.joox.data.settings.generated.AutoSettingsRepository
 import com.tencent.ibg.joox.ksp.annotations.AutoSettingSpec
 import java.util.Locale
@@ -484,29 +482,26 @@ class SettingsRepository(private val context: Context) {
             it[SettingsKeys.PLAYBACK_EQUALIZER_PRESET] ?: PlaybackEqualizerPresetId.FLAT
         }
 
+    // ── 音效引擎（Hachimi DSP）：整份快照 JSON 存储，设置页与播放链路共用 ──
+    private val hachimiSoundStore = HachimiSoundSettingsStore(context)
+
+    /** 音效引擎快照；每次变更由播放侧 collect 后推送到 HachimiAudioBridge。 */
+    val hachimiSoundSettingsFlow: Flow<HachimiSoundSnapshot> = hachimiSoundStore.settingsFlow
+
+    suspend fun currentHachimiSoundSettings(): HachimiSoundSnapshot =
+        hachimiSoundStore.currentSettings()
+
+    suspend fun updateHachimiSoundSettings(
+        transform: (HachimiSoundSnapshot) -> HachimiSoundSnapshot
+    ) = hachimiSoundStore.update(transform)
+
     val playbackEqualizerCustomBandLevelsFlow: Flow<List<Int>> =
         dataStoreSettingFlow {
             decodePlaybackEqualizerBandLevels(it[SettingsKeys.PLAYBACK_EQUALIZER_CUSTOM_BAND_LEVELS])
         }
 
-    val playbackLoudnessGainMbFlow: Flow<Int> =
-        dataStoreSettingFlow {
-            normalizePlaybackLoudnessGainMb(
-                it[SettingsKeys.PLAYBACK_LOUDNESS_GAIN_MB] ?: DEFAULT_PLAYBACK_LOUDNESS_GAIN_MB
-            )
-        }
 
-    val playbackVolumeBalanceFlow: Flow<Float> =
-        dataStoreSettingFlow {
-            normalizePlaybackVolumeBalance(
-                it[SettingsKeys.PLAYBACK_VOLUME_BALANCE] ?: DEFAULT_PLAYBACK_VOLUME_BALANCE
-            )
-        }
 
-    val playbackVolumeNormalizationEnabledFlow: Flow<Boolean> =
-        dataStoreSettingFlow {
-            it[SettingsKeys.PLAYBACK_VOLUME_NORMALIZATION_ENABLED] ?: false
-        }
 
     val playbackHighResolutionOutputEnabledFlow: Flow<Boolean> =
         dataStoreSettingFlow {
@@ -1197,34 +1192,8 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
-    suspend fun setPlaybackLoudnessGainMb(levelMb: Int) {
-        val normalized = normalizePlaybackLoudnessGainMb(levelMb)
-        context.dataStore.edit {
-            it[SettingsKeys.PLAYBACK_LOUDNESS_GAIN_MB] = normalized
-        }
-        updatePlaybackPreferenceSnapshot(context) {
-            it.copy(playbackLoudnessGainMb = normalized)
-        }
-    }
 
-    suspend fun setPlaybackVolumeBalance(balance: Float) {
-        val normalized = normalizePlaybackVolumeBalance(balance)
-        context.dataStore.edit {
-            it[SettingsKeys.PLAYBACK_VOLUME_BALANCE] = normalized
-        }
-        updatePlaybackPreferenceSnapshot(context) {
-            it.copy(playbackVolumeBalance = normalized)
-        }
-    }
 
-    suspend fun setPlaybackVolumeNormalizationEnabled(enabled: Boolean) {
-        context.dataStore.edit {
-            it[SettingsKeys.PLAYBACK_VOLUME_NORMALIZATION_ENABLED] = enabled
-        }
-        updatePlaybackPreferenceSnapshot(context) {
-            it.copy(playbackVolumeNormalizationEnabled = enabled)
-        }
-    }
 
     suspend fun setPlaybackHighResolutionOutputEnabled(enabled: Boolean) {
         context.dataStore.edit {

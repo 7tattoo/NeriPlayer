@@ -4131,12 +4131,6 @@ fun MoreOptionsSheet(
                         state = playbackSoundState,
                         onSpeedChange = { value, persist -> viewModel.setPlaybackSpeed(value, persist) },
                         onPitchChange = { value, persist -> viewModel.setPlaybackPitch(value, persist) },
-                        onLoudnessGainChange = { value, persist -> viewModel.setPlaybackLoudnessGain(value, persist) },
-                        onEqualizerEnabledChange = viewModel::setPlaybackEqualizerEnabled,
-                        onPresetSelected = viewModel::selectPlaybackEqualizerPreset,
-                        onBandLevelChange = { index, value, persist ->
-                            viewModel.updatePlaybackEqualizerBandLevel(index, value, persist)
-                        },
                         onReset = viewModel::resetPlaybackSoundSettings,
                         onDismiss = { page = MoreOptionsPage.MAIN }
                     )

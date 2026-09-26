@@ -204,12 +204,8 @@ fun SettingsHostScreen(
     onPlaybackCrossfadeInDurationMsChange: (Long) -> Unit,
     playbackCrossfadeOutDurationMs: Long,
     onPlaybackCrossfadeOutDurationMsChange: (Long) -> Unit,
-    playbackVolumeNormalizationEnabled: Boolean,
-    onPlaybackVolumeNormalizationEnabledChange: (Boolean) -> Unit,
     playbackHighResolutionOutputEnabled: Boolean,
     onPlaybackHighResolutionOutputEnabledChange: (Boolean) -> Unit,
-    playbackVolumeBalance: Float,
-    onPlaybackVolumeBalanceChange: (Float) -> Unit,
     keepLastPlaybackProgress: Boolean,
     onKeepLastPlaybackProgressChange: (Boolean) -> Unit,
     rememberLongFormPlaybackProgress: Boolean,
@@ -483,15 +479,10 @@ fun SettingsHostScreen(
                             onPlaybackCrossfadeInDurationMsChange = onPlaybackCrossfadeInDurationMsChange,
                             playbackCrossfadeOutDurationMs = playbackCrossfadeOutDurationMs,
                             onPlaybackCrossfadeOutDurationMsChange = onPlaybackCrossfadeOutDurationMsChange,
-                            playbackVolumeNormalizationEnabled = playbackVolumeNormalizationEnabled,
-                            onPlaybackVolumeNormalizationEnabledChange =
-                                onPlaybackVolumeNormalizationEnabledChange,
                             playbackHighResolutionOutputEnabled =
                                 playbackHighResolutionOutputEnabled,
                             onPlaybackHighResolutionOutputEnabledChange =
                                 onPlaybackHighResolutionOutputEnabledChange,
-                            playbackVolumeBalance = playbackVolumeBalance,
-                            onPlaybackVolumeBalanceChange = onPlaybackVolumeBalanceChange,
                             keepLastPlaybackProgress = keepLastPlaybackProgress,
                             onKeepLastPlaybackProgressChange = onKeepLastPlaybackProgressChange,
                             rememberLongFormPlaybackProgress = rememberLongFormPlaybackProgress,

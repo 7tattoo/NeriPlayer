@@ -408,6 +408,19 @@ internal fun manualSettingsSearchEntries(context: Context): List<SettingsSearchE
 
     return listOf(
         entry(
+            page = SettingsPage.SoundEngine,
+            titleRes = R.string.sound_engine_title,
+            descriptionRes = R.string.sound_engine_subtitle,
+            id = "sound_engine",
+            aliases = listOf(
+                "音效", "音效引擎", "均衡器", "混响", "环绕", "人声", "压限", "输出",
+                "hachimi", "equalizer", "reverb", "surround", "dsp", "sound effect",
+                "xiaoyin", "junhengqi", "hunxiang"
+            ),
+            targetId = "page:SoundEngine",
+            order = SettingsPage.SoundEngine.ordinal * 100 + 10
+        ),
+        entry(
             page = SettingsPage.General,
             titleRes = R.string.language_setting_title,
             descriptionRes = R.string.language_select_title,
@@ -789,6 +802,7 @@ private val PageSearchAliases = mapOf(
     SettingsPage.Lyrics to listOf("lyrics", "lrc", "amll", "lyricon", "floating", "bluetooth", "geci"),
     SettingsPage.Network to listOf("network", "proxy", "bypass", "daili", "wangluo"),
     SettingsPage.Playback to listOf("playback", "audio", "queue", "volume", "fade", "crossfade", "bofang"),
+    SettingsPage.SoundEngine to listOf("sound", "engine", "hachimi", "effect", "yinxiang", "xiaoyin"),
     SettingsPage.UsbExclusive to listOf("usb", "dac", "pcm", "uac", "exclusive", "bit perfect", "dizhan"),
     SettingsPage.PlaybackSource to listOf("source", "fallback", "bili", "netease", "yinyuan", "huanyuan"),
     SettingsPage.AudioQuality to listOf("quality", "lossless", "hires", "dolby", "bitrate", "yinzhi"),

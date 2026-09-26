@@ -24,18 +24,6 @@ class UsbExclusiveCompatibilityPolicyTest {
     @Test
     fun `platform audio effects require system audio session`() {
         assertTrue(PlaybackSoundConfig(equalizerEnabled = true).requiresSystemAudioProcessor())
-        assertTrue(PlaybackSoundConfig(loudnessGainMb = 100).requiresSystemAudioProcessor())
-    }
-
-    @Test
-    fun `stereo balance requires system audio processor`() {
-        assertTrue(PlaybackSoundConfig(volumeBalance = -0.25f).requiresSystemAudioProcessor())
-        assertTrue(PlaybackSoundConfig(volumeBalance = 0.25f).requiresSystemAudioProcessor())
-    }
-
-    @Test
-    fun `volume normalization requires system audio processor`() {
-        assertTrue(PlaybackSoundConfig(volumeNormalizationEnabled = true).requiresSystemAudioProcessor())
     }
 
     @Test
@@ -54,11 +42,5 @@ class UsbExclusiveCompatibilityPolicyTest {
         assertTrue(
             PlaybackSoundConfig().requiresSystemAudioProcessor(listenTogetherSyncRate = 1.0002f)
         )
-    }
-
-    @Test
-    fun `non positive loudness gain does not require platform effect`() {
-        assertFalse(PlaybackSoundConfig(loudnessGainMb = 0).requiresSystemAudioProcessor())
-        assertFalse(PlaybackSoundConfig(loudnessGainMb = -100).requiresSystemAudioProcessor())
     }
 }

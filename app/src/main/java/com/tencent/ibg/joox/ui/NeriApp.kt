@@ -1543,17 +1543,10 @@ private fun NeriAppContent(
     val playbackFadeOutDurationMs by repo.playbackFadeOutDurationMsFlow.collectAsStateWithLifecycle(initialValue = 500L)
     val playbackCrossfadeInDurationMs by repo.playbackCrossfadeInDurationMsFlow.collectAsStateWithLifecycle(initialValue = 500L)
     val playbackCrossfadeOutDurationMs by repo.playbackCrossfadeOutDurationMsFlow.collectAsStateWithLifecycle(initialValue = 500L)
-    val playbackVolumeNormalizationEnabled by repo.playbackVolumeNormalizationEnabledFlow
-        .collectAsStateWithLifecycle(
-            initialValue = startupPlaybackPreferences.playbackVolumeNormalizationEnabled
-        )
     val playbackHighResolutionOutputEnabled by repo.playbackHighResolutionOutputEnabledFlow
         .collectAsStateWithLifecycle(
             initialValue = startupPlaybackPreferences.playbackHighResolutionOutputEnabled
         )
-    val playbackVolumeBalance by repo.playbackVolumeBalanceFlow.collectAsStateWithLifecycle(
-        initialValue = startupPlaybackPreferences.playbackVolumeBalance
-    )
     val keepLastPlaybackProgress by repo.keepLastPlaybackProgressFlow.collectAsStateWithLifecycle(initialValue = true)
     val rememberLongFormPlaybackProgress by repo.rememberLongFormPlaybackProgressFlow
         .collectAsStateWithLifecycle(
@@ -3098,11 +3091,6 @@ private fun NeriAppContent(
                         onPlaybackCrossfadeOutDurationMsChange = { duration ->
                             scope.launch { repo.setPlaybackCrossfadeOutDurationMs(duration) }
                         },
-                        playbackVolumeNormalizationEnabled =
-                            playbackVolumeNormalizationEnabled,
-                        onPlaybackVolumeNormalizationEnabledChange = { enabled ->
-                            PlayerManager.setPlaybackVolumeNormalizationEnabled(enabled)
-                        },
                         playbackHighResolutionOutputEnabled =
                             playbackHighResolutionOutputEnabled,
                         onPlaybackHighResolutionOutputEnabledChange = { enabled ->
@@ -3111,10 +3099,6 @@ private fun NeriAppContent(
                                 context = context,
                                 message = composeResources.getString(R.string.settings_restart_hint)
                             )
-                        },
-                        playbackVolumeBalance = playbackVolumeBalance,
-                        onPlaybackVolumeBalanceChange = { balance ->
-                            PlayerManager.setPlaybackVolumeBalance(balance)
                         },
                         keepLastPlaybackProgress = keepLastPlaybackProgress,
                         onKeepLastPlaybackProgressChange = { enabled ->

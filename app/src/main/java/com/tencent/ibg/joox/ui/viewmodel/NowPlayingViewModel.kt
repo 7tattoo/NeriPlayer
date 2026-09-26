@@ -418,10 +418,6 @@ class NowPlayingViewModel : ViewModel() {
         PlayerManager.setPlaybackPitch(pitch, persist)
     }
 
-    fun setPlaybackLoudnessGain(levelMb: Int, persist: Boolean = true) {
-        PlayerManager.setPlaybackLoudnessGain(levelMb, persist)
-    }
-
     fun setPlaybackEqualizerEnabled(enabled: Boolean, persist: Boolean = true) {
         PlayerManager.setPlaybackEqualizerEnabled(enabled, persist)
     }

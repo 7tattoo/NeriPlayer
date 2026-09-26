@@ -2,10 +2,8 @@ package com.tencent.ibg.joox.core.player.policy.command
 
 import androidx.media3.common.Player
 import com.tencent.ibg.joox.core.player.model.PlaybackSoundConfig
-import com.tencent.ibg.joox.core.player.model.normalizePlaybackLoudnessGainMb
 import com.tencent.ibg.joox.core.player.model.normalizePlaybackPitch
 import com.tencent.ibg.joox.core.player.model.normalizePlaybackSpeed
-import com.tencent.ibg.joox.core.player.model.normalizePlaybackVolumeBalance
 import com.tencent.ibg.joox.data.model.SongItem
 import com.tencent.ibg.joox.data.platform.youtube.extractYouTubeMusicVideoId
 
@@ -384,17 +382,12 @@ internal fun resolvePlaybackSoundConfigForEngine(
 ): PlaybackSoundConfig {
     val normalizedBaseConfig = baseConfig.copy(
             speed = normalizePlaybackSpeed(baseConfig.speed),
-            pitch = normalizePlaybackPitch(baseConfig.pitch),
-            loudnessGainMb = normalizePlaybackLoudnessGainMb(baseConfig.loudnessGainMb),
-            volumeBalance = normalizePlaybackVolumeBalance(baseConfig.volumeBalance)
+            pitch = normalizePlaybackPitch(baseConfig.pitch)
         )
     if (usbExclusivePlaybackEnabled) {
         return normalizedBaseConfig.copy(
             speed = 1f,
             pitch = 1f,
-            loudnessGainMb = 0,
-            volumeBalance = 0f,
-            volumeNormalizationEnabled = false,
             equalizerEnabled = false
         )
     }

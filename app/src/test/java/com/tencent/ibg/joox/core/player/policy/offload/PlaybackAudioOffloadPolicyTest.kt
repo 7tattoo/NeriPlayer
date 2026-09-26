@@ -17,9 +17,6 @@ class PlaybackAudioOffloadPolicyTest {
         assertTrue(resolveRequiresPcmAudioProcessing(playbackSpeed = 1.25f))
         assertTrue(resolveRequiresPcmAudioProcessing(playbackPitch = 0.9f))
         assertTrue(resolveRequiresPcmAudioProcessing(equalizerEnabled = true))
-        assertTrue(resolveRequiresPcmAudioProcessing(loudnessGainMb = 100))
-        assertTrue(resolveRequiresPcmAudioProcessing(volumeBalance = 0.25f))
-        assertTrue(resolveRequiresPcmAudioProcessing(volumeNormalizationEnabled = true))
         assertTrue(resolveRequiresPcmAudioProcessing(highResolutionOutputEnabled = true))
         assertTrue(resolveRequiresPcmAudioProcessing(audioReactiveActive = true))
         assertTrue(resolveRequiresPcmAudioProcessing(listenTogetherPlaybackRate = 1.02f))
@@ -76,9 +73,6 @@ class PlaybackAudioOffloadPolicyTest {
         playbackSpeed: Float = 1f,
         playbackPitch: Float = 1f,
         equalizerEnabled: Boolean = false,
-        loudnessGainMb: Int = 0,
-        volumeBalance: Float = 0f,
-        volumeNormalizationEnabled: Boolean = false,
         highResolutionOutputEnabled: Boolean = false,
         audioReactiveActive: Boolean = false,
         audioSource: PlaybackAudioSource? = null,
@@ -89,9 +83,6 @@ class PlaybackAudioOffloadPolicyTest {
             playbackSpeed = playbackSpeed,
             playbackPitch = playbackPitch,
             equalizerEnabled = equalizerEnabled,
-            loudnessGainMb = loudnessGainMb,
-            volumeBalance = volumeBalance,
-            volumeNormalizationEnabled = volumeNormalizationEnabled,
             highResolutionOutputEnabled = highResolutionOutputEnabled,
             audioReactiveActive = audioReactiveActive,
             audioSource = audioSource,

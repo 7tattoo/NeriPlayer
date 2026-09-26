@@ -213,9 +213,6 @@ data class PlaybackPreferenceSnapshot(
         return PlaybackSoundConfig(
             speed = normalizedSnapshot.playbackSpeed,
             pitch = normalizedSnapshot.playbackPitch,
-            loudnessGainMb = normalizedSnapshot.playbackLoudnessGainMb,
-            volumeBalance = normalizedSnapshot.playbackVolumeBalance,
-            volumeNormalizationEnabled = normalizedSnapshot.playbackVolumeNormalizationEnabled,
             equalizerEnabled = normalizedSnapshot.playbackEqualizerEnabled,
             presetId = normalizedSnapshot.playbackEqualizerPreset,
             customBandLevelsMb = normalizedSnapshot.playbackEqualizerCustomBandLevels

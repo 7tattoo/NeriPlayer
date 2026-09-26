@@ -104,10 +104,8 @@ import com.tencent.ibg.joox.core.player.policy.progress.resolveLongFormPlaybackR
 import com.tencent.ibg.joox.core.player.metadata.ExternalBluetoothLyricPayload
 import com.tencent.ibg.joox.core.player.metadata.NeteaseLyricsCacheEntry
 import com.tencent.ibg.joox.core.player.metadata.YouTubeMusicLyricsCacheEntry
-import com.tencent.ibg.joox.core.player.model.normalizePlaybackLoudnessGainMb
 import com.tencent.ibg.joox.core.player.model.normalizePlaybackPitch
 import com.tencent.ibg.joox.core.player.model.normalizePlaybackSpeed
-import com.tencent.ibg.joox.core.player.model.normalizePlaybackVolumeBalance
 import com.tencent.ibg.joox.core.player.debug.UsbExclusiveDebugLogger
 import com.tencent.ibg.joox.core.player.policy.command.PlaybackCommand
 import com.tencent.ibg.joox.core.player.policy.command.PlaybackCommandSource
@@ -1755,34 +1753,6 @@ object PlayerManager {
         )
     }
 
-    fun setPlaybackLoudnessGain(levelMb: Int, persist: Boolean = true) {
-        ensureInitialized()
-        applyPlaybackSoundConfig(
-            playbackSoundConfig.copy(
-                loudnessGainMb = normalizePlaybackLoudnessGainMb(levelMb)
-            ),
-            persist = persist
-        )
-    }
-
-    fun setPlaybackVolumeBalance(balance: Float, persist: Boolean = true) {
-        ensureInitialized()
-        applyPlaybackSoundConfig(
-            playbackSoundConfig.copy(
-                volumeBalance = normalizePlaybackVolumeBalance(balance)
-            ),
-            persist = persist
-        )
-    }
-
-    fun setPlaybackVolumeNormalizationEnabled(enabled: Boolean, persist: Boolean = true) {
-        ensureInitialized()
-        applyPlaybackSoundConfig(
-            playbackSoundConfig.copy(volumeNormalizationEnabled = enabled),
-            persist = persist
-        )
-    }
-
     fun setPlaybackHighResolutionOutputEnabled(enabled: Boolean, persist: Boolean = true) {
         ensureInitialized()
         if (playbackHighResolutionOutputEnabled == enabled) return
@@ -1847,9 +1817,6 @@ object PlayerManager {
             PlaybackSoundConfig(
                 speed = DEFAULT_PLAYBACK_SPEED,
                 pitch = DEFAULT_PLAYBACK_PITCH,
-                loudnessGainMb = DEFAULT_PLAYBACK_LOUDNESS_GAIN_MB,
-                volumeBalance = DEFAULT_PLAYBACK_VOLUME_BALANCE,
-                volumeNormalizationEnabled = DEFAULT_PLAYBACK_VOLUME_NORMALIZATION_ENABLED,
                 equalizerEnabled = false,
                 presetId = PlaybackEqualizerPresetId.FLAT,
                 customBandLevelsMb = emptyList()
@@ -1866,8 +1833,6 @@ object PlayerManager {
         playbackSoundConfig = newConfig.copy(
             speed = normalizePlaybackSpeed(newConfig.speed),
             pitch = normalizePlaybackPitch(newConfig.pitch),
-            loudnessGainMb = normalizePlaybackLoudnessGainMb(newConfig.loudnessGainMb),
-            volumeBalance = normalizePlaybackVolumeBalance(newConfig.volumeBalance)
         )
         if (lyriconEnabled && previousConfig.speed != playbackSoundConfig.speed) {
             LyriconManager.setPlaybackSpeed(playbackSoundConfig.speed)
@@ -1895,8 +1860,7 @@ object PlayerManager {
         val debounceHeavyEffectUpdate =
             previousConfig.equalizerEnabled != newConfig.equalizerEnabled ||
                 previousConfig.presetId != newConfig.presetId ||
-                previousConfig.customBandLevelsMb != newConfig.customBandLevelsMb ||
-                previousConfig.loudnessGainMb != newConfig.loudnessGainMb
+                previousConfig.customBandLevelsMb != newConfig.customBandLevelsMb
         val applyDelayMs = if (debounceHeavyEffectUpdate) 48L else 0L
 
         playbackSoundApplyJob = mainScope.launch {
@@ -1914,8 +1878,6 @@ object PlayerManager {
         val normalizedConfig = newConfig.copy(
             speed = normalizePlaybackSpeed(newConfig.speed),
             pitch = normalizePlaybackPitch(newConfig.pitch),
-            loudnessGainMb = normalizePlaybackLoudnessGainMb(newConfig.loudnessGainMb),
-            volumeBalance = normalizePlaybackVolumeBalance(newConfig.volumeBalance)
         )
         if (normalizedConfig == playbackSoundConfig) return
         applyPlaybackSoundConfig(normalizedConfig, persist = false)
@@ -1927,9 +1889,6 @@ object PlayerManager {
             delay(150)
             settingsRepo.setPlaybackSpeed(config.speed)
             settingsRepo.setPlaybackPitch(config.pitch)
-            settingsRepo.setPlaybackLoudnessGainMb(config.loudnessGainMb)
-            settingsRepo.setPlaybackVolumeBalance(config.volumeBalance)
-            settingsRepo.setPlaybackVolumeNormalizationEnabled(config.volumeNormalizationEnabled)
             settingsRepo.setPlaybackEqualizerEnabled(config.equalizerEnabled)
             settingsRepo.setPlaybackEqualizerPreset(config.presetId)
             settingsRepo.setPlaybackEqualizerCustomBandLevels(config.customBandLevelsMb)

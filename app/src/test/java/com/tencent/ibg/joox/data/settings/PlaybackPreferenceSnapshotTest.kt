@@ -123,9 +123,6 @@ class PlaybackPreferenceSnapshotTest {
 
         assertEquals(1.25f, config.speed, 0.0001f)
         assertEquals(0.95f, config.pitch, 0.0001f)
-        assertEquals(500, config.loudnessGainMb)
-        assertEquals(-0.35f, config.volumeBalance, 0.0001f)
-        assertTrue(config.volumeNormalizationEnabled)
         assertTrue(config.equalizerEnabled)
         assertEquals(PlaybackEqualizerPresetId.POP, config.presetId)
         assertEquals(listOf(100, -50, 25), config.customBandLevelsMb)

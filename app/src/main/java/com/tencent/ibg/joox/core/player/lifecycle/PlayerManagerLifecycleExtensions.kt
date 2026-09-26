@@ -55,7 +55,6 @@ import com.tencent.ibg.joox.core.player.debug.UsbExclusiveDiagnostics
 import com.tencent.ibg.joox.core.player.debug.playWhenReadyChangeReasonName
 import com.tencent.ibg.joox.core.player.debug.playbackStateName
 import com.tencent.ibg.joox.core.player.effects.AudioReactive
-import com.tencent.ibg.joox.core.player.engine.PlaybackVolumeNormalizationState
 import com.tencent.ibg.joox.core.player.engine.ReactiveRenderersFactory
 import com.tencent.ibg.joox.core.player.engine.datasource.ConditionalHttpDataSourceFactory
 import com.tencent.ibg.joox.core.player.lyrics.FloatingLyricsOverlayManager
@@ -802,7 +801,6 @@ internal fun PlayerManager.initializeImpl(
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                PlaybackVolumeNormalizationState.resetForNewTrack()
                 _playbackPositionMs.value = player.currentPosition.coerceAtLeast(0L)
                 maybeBackfillCurrentSongDurationFromPlayer()
                 if (player.playWhenReady || player.isPlaying) {
@@ -1077,25 +1075,10 @@ internal fun PlayerManager.initializeImpl(
             }
         }
         ioScope.launch {
-            settingsRepo.playbackLoudnessGainMbFlow.collect { levelMb ->
-                applyPlaybackSoundConfigIfChanged(
-                    playbackSoundConfig.copy(loudnessGainMb = levelMb)
-                )
-            }
         }
         ioScope.launch {
-            settingsRepo.playbackVolumeBalanceFlow.collect { balance ->
-                applyPlaybackSoundConfigIfChanged(
-                    playbackSoundConfig.copy(volumeBalance = balance)
-                )
-            }
         }
         ioScope.launch {
-            settingsRepo.playbackVolumeNormalizationEnabledFlow.collect { enabled ->
-                applyPlaybackSoundConfigIfChanged(
-                    playbackSoundConfig.copy(volumeNormalizationEnabled = enabled)
-                )
-            }
         }
         ioScope.launch {
             settingsRepo.playbackEqualizerEnabledFlow.collect { enabled ->
@@ -1184,6 +1167,14 @@ internal fun PlayerManager.initializeImpl(
                 }
             }
         }
+        // 音效引擎（Hachimi DSP）：设置页持久化的快照一旦变化即整份推送到运行时管线。
+        ioScope.launch {
+            settingsRepo.hachimiSoundSettingsFlow.collect { snapshot ->
+                HachimiAudioBridge.applyFullSettings(snapshot.toEqualizerSettings())
+                HachimiAudioBridge.applyOutputSettings(snapshot.toOutputSettings())
+            }
+        }
+
         ioScope.launch {
             settingsRepo.allowMixedPlaybackFlow.collect { enabled ->
                 allowMixedPlaybackEnabled = enabled
@@ -1373,9 +1364,6 @@ internal fun PlayerManager.updateAudioOffloadPreferences(reason: String) {
         playbackSpeed = playbackSoundConfig.speed,
         playbackPitch = playbackSoundConfig.pitch,
         equalizerEnabled = playbackSoundConfig.equalizerEnabled,
-        loudnessGainMb = playbackSoundConfig.loudnessGainMb,
-        volumeBalance = playbackSoundConfig.volumeBalance,
-        volumeNormalizationEnabled = playbackSoundConfig.volumeNormalizationEnabled,
         highResolutionOutputEnabled = playbackHighResolutionOutputEnabled,
         audioReactiveActive = AudioReactive.enabled,
         audioSource = _currentPlaybackAudioInfo.value?.source,

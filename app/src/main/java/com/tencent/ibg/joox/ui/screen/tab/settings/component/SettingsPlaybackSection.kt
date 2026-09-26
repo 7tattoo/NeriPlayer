@@ -79,7 +79,6 @@ import kotlinx.coroutines.launch
 import com.tencent.ibg.joox.R
 import com.tencent.ibg.joox.core.player.model.MAX_PLAYBACK_VOLUME_BALANCE
 import com.tencent.ibg.joox.core.player.model.MIN_PLAYBACK_VOLUME_BALANCE
-import com.tencent.ibg.joox.core.player.model.normalizePlaybackVolumeBalance
 import com.tencent.ibg.joox.data.settings.generated.AutoSettingInfo
 import com.tencent.ibg.joox.data.settings.generated.AutoSettingsKeys
 import com.tencent.ibg.joox.data.settings.generated.AutoSettingsListItem
@@ -113,12 +112,8 @@ internal fun SettingsPlaybackSection(
     onPlaybackCrossfadeInDurationMsChange: (Long) -> Unit,
     playbackCrossfadeOutDurationMs: Long,
     onPlaybackCrossfadeOutDurationMsChange: (Long) -> Unit,
-    playbackVolumeNormalizationEnabled: Boolean,
-    onPlaybackVolumeNormalizationEnabledChange: (Boolean) -> Unit,
     playbackHighResolutionOutputEnabled: Boolean,
     onPlaybackHighResolutionOutputEnabledChange: (Boolean) -> Unit,
-    playbackVolumeBalance: Float,
-    onPlaybackVolumeBalanceChange: (Float) -> Unit,
     keepLastPlaybackProgress: Boolean,
     onKeepLastPlaybackProgressChange: (Boolean) -> Unit,
     rememberLongFormPlaybackProgress: Boolean,
@@ -349,40 +344,6 @@ internal fun SettingsPlaybackSection(
                         )
                     },
                     onCheckedChange = onPlaybackHighResolutionOutputEnabledChange,
-                    highlightTargetId = highlightTargetId,
-                    highlightPulse = highlightPulse,
-                    onHighlightFinished = onHighlightFinished
-                )
-
-                PlaybackSwitchItem(
-                    setting = AutoSettingsMetadata.requireSetting(
-                        AutoSettingsKeys.PLAYBACK_VOLUME_NORMALIZATION_ENABLED
-                    ),
-                    checked = playbackVolumeNormalizationEnabled,
-                    icon = {
-                        Icon(
-                            imageVector = Icons.Outlined.BarChart,
-                            contentDescription = stringResource(
-                                R.string.settings_playback_volume_normalization
-                            ),
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurface
-                        )
-                    },
-                    onToggle = {
-                        onPlaybackVolumeNormalizationEnabledChange(
-                            !playbackVolumeNormalizationEnabled
-                        )
-                    },
-                    onCheckedChange = onPlaybackVolumeNormalizationEnabledChange,
-                    highlightTargetId = highlightTargetId,
-                    highlightPulse = highlightPulse,
-                    onHighlightFinished = onHighlightFinished
-                )
-
-                VolumeBalanceSliderListItem(
-                    balance = playbackVolumeBalance,
-                    onBalanceChange = onPlaybackVolumeBalanceChange,
                     highlightTargetId = highlightTargetId,
                     highlightPulse = highlightPulse,
                     onHighlightFinished = onHighlightFinished
@@ -624,74 +585,6 @@ private fun UsbExclusiveSettingsEntry(
     )
 }
 
-@Composable
-private fun VolumeBalanceSliderListItem(
-    balance: Float,
-    onBalanceChange: (Float) -> Unit,
-    highlightTargetId: String?,
-    highlightPulse: Int,
-    onHighlightFinished: (() -> Unit)?
-) {
-    val normalizedBalance = normalizePlaybackVolumeBalance(balance)
-    var pendingBalance by remember { mutableFloatStateOf(normalizedBalance) }
-
-    LaunchedEffect(normalizedBalance) {
-        if ((pendingBalance - normalizedBalance).absoluteValue > 0.01f) {
-            pendingBalance = normalizedBalance
-        }
-    }
-
-    ListItem(
-        modifier = Modifier.settingsHighlightTarget(
-            targetId = "setting:playback_volume_balance",
-            highlightTargetId = highlightTargetId,
-            highlightPulse = highlightPulse,
-            onHighlightFinished = onHighlightFinished
-        ),
-        headlineContent = { Text(stringResource(R.string.settings_playback_volume_balance)) },
-        supportingContent = {
-            Column(Modifier.fillMaxWidth()) {
-                Text(
-                    text = volumeBalanceLabel(pendingBalance),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                MiuixSettingsSlider(
-                    value = pendingBalance,
-                    onValueChange = { pendingBalance = it },
-                    onValueChangeFinished = {
-                        onBalanceChange(normalizePlaybackVolumeBalance(pendingBalance))
-                    },
-                    valueRange = MIN_PLAYBACK_VOLUME_BALANCE..MAX_PLAYBACK_VOLUME_BALANCE,
-                    steps = 39
-                )
-            }
-        },
-        leadingContent = {
-            Icon(
-                imageVector = Icons.Outlined.SurroundSound,
-                contentDescription = stringResource(R.string.settings_playback_volume_balance),
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurface
-            )
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
-}
-
-@Composable
-private fun volumeBalanceLabel(balance: Float): String {
-    val normalizedBalance = normalizePlaybackVolumeBalance(balance)
-    val percent = (normalizedBalance.absoluteValue * 100f).roundToInt()
-    return when {
-        percent == 0 -> stringResource(R.string.settings_playback_volume_balance_center)
-        normalizedBalance < 0f -> stringResource(
-            R.string.settings_playback_volume_balance_left,
-            percent
-        )
-        else -> stringResource(R.string.settings_playback_volume_balance_right, percent)
-    }
-}
 
 @Composable
 private fun PlaybackSwitchItem(

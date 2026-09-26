@@ -75,6 +75,11 @@ internal enum class SettingsPage(
         AutoSettingsSchema.audioQuality.metadata,
         Icons.Filled.Audiotrack
     ),
+    SoundEngine(
+        titleRes = R.string.sound_engine_title,
+        descriptionRes = R.string.sound_engine_subtitle,
+        icon = Icons.Outlined.Tune
+    ),
     Storage(
         AutoSettingsSchema.storage.metadata,
         Icons.Outlined.Storage
@@ -127,6 +132,7 @@ internal val SettingsHomePageGroups: List<List<SettingsPage>> = listOf(
     listOf(
         SettingsPage.Playback,
         SettingsPage.AudioQuality,
+        SettingsPage.SoundEngine,
         SettingsPage.PlaybackSource,
         SettingsPage.Lyrics
     ),

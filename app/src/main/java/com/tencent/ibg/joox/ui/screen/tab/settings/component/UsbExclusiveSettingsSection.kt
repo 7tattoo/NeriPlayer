@@ -601,7 +601,7 @@ private fun StatusBanner(status: UsbStatusPresentation) {
 }
 
 @Composable
-private fun SettingsSectionTitle(icon: ImageVector, title: String) {
+internal fun SettingsSectionTitle(icon: ImageVector, title: String) {
     Row(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),

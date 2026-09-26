@@ -10,9 +10,6 @@ internal fun requiresPcmAudioProcessing(
     playbackSpeed: Float,
     playbackPitch: Float,
     equalizerEnabled: Boolean,
-    loudnessGainMb: Int,
-    volumeBalance: Float,
-    volumeNormalizationEnabled: Boolean,
     highResolutionOutputEnabled: Boolean,
     audioReactiveActive: Boolean,
     audioSource: PlaybackAudioSource?,
@@ -25,9 +22,6 @@ internal fun requiresPcmAudioProcessing(
         abs(playbackSpeed - 1f) > PLAYBACK_PARAMETER_EPSILON ||
         abs(playbackPitch - 1f) > PLAYBACK_PARAMETER_EPSILON ||
         equalizerEnabled ||
-        loudnessGainMb != 0 ||
-        abs(volumeBalance) > PLAYBACK_PARAMETER_EPSILON ||
-        volumeNormalizationEnabled ||
         highResolutionOutputEnabled ||
         audioReactiveActive ||
         abs(listenTogetherPlaybackRate - 1f) > PLAYBACK_PARAMETER_EPSILON

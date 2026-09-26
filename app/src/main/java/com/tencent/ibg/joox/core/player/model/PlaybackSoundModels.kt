@@ -52,9 +52,6 @@ private val DEFAULT_EQUALIZER_CENTER_FREQUENCIES_HZ = PRESET_ANCHOR_FREQUENCIES_
 data class PlaybackSoundConfig(
     val speed: Float = DEFAULT_PLAYBACK_SPEED,
     val pitch: Float = DEFAULT_PLAYBACK_PITCH,
-    val loudnessGainMb: Int = DEFAULT_PLAYBACK_LOUDNESS_GAIN_MB,
-    val volumeBalance: Float = DEFAULT_PLAYBACK_VOLUME_BALANCE,
-    val volumeNormalizationEnabled: Boolean = DEFAULT_PLAYBACK_VOLUME_NORMALIZATION_ENABLED,
     val equalizerEnabled: Boolean = false,
     val presetId: String = PlaybackEqualizerPresetId.FLAT,
     val customBandLevelsMb: List<Int> = emptyList()
@@ -72,16 +69,12 @@ data class PlaybackEqualizerBand(
 data class PlaybackSoundState(
     val speed: Float = DEFAULT_PLAYBACK_SPEED,
     val pitch: Float = DEFAULT_PLAYBACK_PITCH,
-    val loudnessGainMb: Int = DEFAULT_PLAYBACK_LOUDNESS_GAIN_MB,
-    val volumeBalance: Float = DEFAULT_PLAYBACK_VOLUME_BALANCE,
-    val volumeNormalizationEnabled: Boolean = DEFAULT_PLAYBACK_VOLUME_NORMALIZATION_ENABLED,
     val equalizerEnabled: Boolean = false,
     val presetId: String = PlaybackEqualizerPresetId.FLAT,
     val bands: List<PlaybackEqualizerBand> = defaultPlaybackEqualizerBands(),
     val bandLevelRangeMb: IntRange = DEFAULT_EQUALIZER_BAND_LEVEL_RANGE_MB,
     val audioSessionId: Int? = null,
     val equalizerAvailable: Boolean = false,
-    val loudnessEnhancerAvailable: Boolean = false
 )
 
 data class PlaybackEqualizerPreset(
@@ -184,19 +177,6 @@ fun semitoneOffsetToPitch(semitoneOffset: Float): Float {
     return normalizePlaybackPitch(pitch)
 }
 
-fun normalizePlaybackLoudnessGainMb(value: Int): Int {
-    return value.coerceIn(
-        minimumValue = MIN_PLAYBACK_LOUDNESS_GAIN_MB,
-        maximumValue = MAX_PLAYBACK_LOUDNESS_GAIN_MB
-    )
-}
-
-fun normalizePlaybackVolumeBalance(value: Float): Float {
-    if (!value.isFinite()) return DEFAULT_PLAYBACK_VOLUME_BALANCE
-    return ((value * 100f).roundToInt() / 100f)
-        .coerceIn(MIN_PLAYBACK_VOLUME_BALANCE, MAX_PLAYBACK_VOLUME_BALANCE)
-}
-
 fun findPlaybackEqualizerPreset(id: String): PlaybackEqualizerPreset? {
     return PlaybackEqualizerPresets.firstOrNull { it.id == id }
 }
@@ -246,6 +226,14 @@ fun decodePlaybackEqualizerBandLevels(raw: String?): List<Int> {
 
 fun formatPlaybackRatioLabel(value: Float): String {
     return "${(value * 100).roundToInt() / 100f}x"
+}
+
+fun normalizePlaybackLoudnessGainMb(levelMb: Int): Int {
+    return levelMb.coerceIn(MIN_PLAYBACK_LOUDNESS_GAIN_MB, MAX_PLAYBACK_LOUDNESS_GAIN_MB)
+}
+
+fun normalizePlaybackVolumeBalance(balance: Float): Float {
+    return balance.coerceIn(MIN_PLAYBACK_VOLUME_BALANCE, MAX_PLAYBACK_VOLUME_BALANCE)
 }
 
 fun formatPlaybackGainLabel(levelMb: Int): String {

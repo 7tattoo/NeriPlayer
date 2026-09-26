@@ -90,8 +90,11 @@ object HachimiAudioBridge {
         outputSettings = settings
     }
 
-    fun createFormatProcessor(): OutputFormatAudioProcessor =
-        OutputFormatAudioProcessor { outputSettings }
+    fun createFormatProcessor(clampOutputTo16Bit: Boolean = false): OutputFormatAudioProcessor =
+        OutputFormatAudioProcessor(
+            settingsProvider = { outputSettings },
+            clampOutputTo16Bit = clampOutputTo16Bit
+        )
 
     // ========== Oboe 路由决策（SwitchableOutputAudioSink 用） ==========
 

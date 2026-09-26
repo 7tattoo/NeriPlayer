@@ -48,15 +48,13 @@ class ReactiveRenderersFactory(context: Context) : DefaultRenderersFactory(conte
         enableFloatOutput: Boolean,
         enableAudioTrackPlaybackParams: Boolean
     ): AudioSink {
-        val volumeNormalization = VolumeNormalizationAudioProcessor()
-        val balance = StereoBalanceAudioProcessor()
         val tee = TeeAudioProcessor(AudioReactive.teeSink)
 
         // Hachimi 软件 DSP 处理器链 —— 常驻管线，空载时自行绕过
+        // AudioTrack 路径位深钳 16bit：Media3 内置尾链（silence skipping/sonic）只收 16bit，
+        // 完整位深（24/32/f32）由 Oboe 硬件直通路径的 formatProcessor 原生生效。
         val processors = arrayOf<AudioProcessor>(
-            volumeNormalization,
-            balance,
-            HachimiAudioBridge.createFormatProcessor(),  // 位深/采样率转换
+            HachimiAudioBridge.createFormatProcessor(clampOutputTo16Bit = true),  // 采样率转换
             HachimiAudioBridge.eqProcessor,               // 10 段参量均衡器 + 全部音效
             tee
         )
@@ -70,7 +68,8 @@ class ReactiveRenderersFactory(context: Context) : DefaultRenderersFactory(conte
         val oboeSink = OboeAudioSink(
             audioApi = OBOE_AUDIO_API_AAUDIO,
             exclusive = false,
-            processors = emptyList(),  // 软效果由 trackSink 侧处理器链处理
+            // Oboe 硬件直通无 Media3 内置尾链限制：位深/采样率设置在此原生生效。
+            processors = listOf(HachimiAudioBridge.createFormatProcessor(clampOutputTo16Bit = false)),
             deviceId = 0
         )
 

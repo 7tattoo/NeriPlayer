@@ -9,9 +9,6 @@ fun PlaybackSoundConfig.requiresSystemAudioProcessor(
     listenTogetherSyncRate: Float = 1f
 ): Boolean {
     return equalizerEnabled ||
-        loudnessGainMb > 0 ||
-        abs(volumeBalance) > PARAMETER_EPSILON ||
-        volumeNormalizationEnabled ||
         abs(speed - 1f) > PARAMETER_EPSILON ||
         abs(pitch - 1f) > PARAMETER_EPSILON ||
         abs(listenTogetherSyncRate - 1f) > PARAMETER_EPSILON

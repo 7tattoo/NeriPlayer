@@ -189,6 +189,7 @@ import com.tencent.ibg.joox.ui.screen.tab.settings.component.StorageCacheDetails
 import com.tencent.ibg.joox.ui.screen.tab.settings.component.SettingsTrafficManagementSection
 import com.tencent.ibg.joox.ui.screen.tab.settings.component.ThemeModeActionButton
 import com.tencent.ibg.joox.ui.screen.tab.settings.component.ThemeSeedListItem
+import com.tencent.ibg.joox.ui.screen.tab.settings.component.HachimiSoundSettingsSection
 import com.tencent.ibg.joox.ui.screen.tab.settings.component.UsbExclusiveSettingsSection
 import com.tencent.ibg.joox.ui.screen.tab.settings.component.YouTubePlaybackSourceSetting
 import com.tencent.ibg.joox.ui.screen.tab.settings.component.settingsItemClickable
@@ -555,12 +556,8 @@ fun SettingsScreen(
     onPlaybackCrossfadeInDurationMsChange: (Long) -> Unit,
     playbackCrossfadeOutDurationMs: Long,
     onPlaybackCrossfadeOutDurationMsChange: (Long) -> Unit,
-    playbackVolumeNormalizationEnabled: Boolean,
-    onPlaybackVolumeNormalizationEnabledChange: (Boolean) -> Unit,
     playbackHighResolutionOutputEnabled: Boolean,
     onPlaybackHighResolutionOutputEnabledChange: (Boolean) -> Unit,
-    playbackVolumeBalance: Float,
-    onPlaybackVolumeBalanceChange: (Float) -> Unit,
     keepLastPlaybackProgress: Boolean,
     onKeepLastPlaybackProgressChange: (Boolean) -> Unit,
     rememberLongFormPlaybackProgress: Boolean,
@@ -1652,6 +1649,11 @@ fun SettingsScreen(
                     }
                 }
 
+                SettingsPage.SoundEngine -> {
+                    item(key = "${selectedPage.name}:content") {
+                        HachimiSoundSettingsSection()
+                    }
+                }
                 SettingsPage.Lyrics -> {
                     for (cardIndex in 0..3) {
                         item(key = "${selectedPage.name}:card:$cardIndex") {
@@ -1741,15 +1743,10 @@ fun SettingsScreen(
                                 playbackCrossfadeOutDurationMs = playbackCrossfadeOutDurationMs,
                                 onPlaybackCrossfadeOutDurationMsChange =
                                     onPlaybackCrossfadeOutDurationMsChange,
-                                playbackVolumeNormalizationEnabled = playbackVolumeNormalizationEnabled,
-                                onPlaybackVolumeNormalizationEnabledChange =
-                                    onPlaybackVolumeNormalizationEnabledChange,
                                 playbackHighResolutionOutputEnabled =
                                     playbackHighResolutionOutputEnabled,
                                 onPlaybackHighResolutionOutputEnabledChange =
                                     onPlaybackHighResolutionOutputEnabledChange,
-                                playbackVolumeBalance = playbackVolumeBalance,
-                                onPlaybackVolumeBalanceChange = onPlaybackVolumeBalanceChange,
                                 keepLastPlaybackProgress = keepLastPlaybackProgress,
                                 onKeepLastPlaybackProgressChange = onKeepLastPlaybackProgressChange,
                                 rememberLongFormPlaybackProgress = rememberLongFormPlaybackProgress,

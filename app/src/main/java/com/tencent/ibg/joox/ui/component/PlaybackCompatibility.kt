@@ -47,10 +47,6 @@ fun PlaybackSoundSheet(
     state: PlaybackSoundState,
     onSpeedChange: (Float, Boolean) -> Unit,
     onPitchChange: (Float, Boolean) -> Unit,
-    onLoudnessGainChange: (Int, Boolean) -> Unit,
-    onEqualizerEnabledChange: (Boolean) -> Unit,
-    onPresetSelected: (String) -> Unit,
-    onBandLevelChange: (Int, Int, Boolean) -> Unit,
     onReset: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -58,10 +54,6 @@ fun PlaybackSoundSheet(
         state = state,
         onSpeedChange = onSpeedChange,
         onPitchChange = onPitchChange,
-        onLoudnessGainChange = onLoudnessGainChange,
-        onEqualizerEnabledChange = onEqualizerEnabledChange,
-        onPresetSelected = onPresetSelected,
-        onBandLevelChange = onBandLevelChange,
         onReset = onReset,
         onDismiss = onDismiss
     )

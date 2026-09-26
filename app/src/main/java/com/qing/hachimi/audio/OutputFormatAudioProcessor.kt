@@ -43,7 +43,15 @@ data class PlaybackOutputSettings(
 @UnstableApi
 class OutputFormatAudioProcessor(
     /** 提供当前输出设置；每次 onConfigure 时读取，位深/采样率改动逐曲生效 */
-    private val settingsProvider: () -> PlaybackOutputSettings
+    private val settingsProvider: () -> PlaybackOutputSettings,
+    /**
+     * AudioTrack（DefaultAudioSink）路径必须置 true：
+     * Media3 内置尾链（SilenceSkippingAudioProcessor / SonicAudioProcessor）只接受
+     * ENCODING_PCM_16BIT，float/24/32 输出会在 configure 阶段抛
+     * UnhandledAudioFormatException → ERROR_CODE_AUDIO_TRACK_INIT_FAILED。
+     * 该路径下位深钳到 16bit，仅采样率转换生效；完整位深走 Oboe 硬件直通路径。
+     */
+    private val clampOutputTo16Bit: Boolean = false
 ) : BaseAudioProcessor() {
 
     private val settings: PlaybackOutputSettings
@@ -59,6 +67,7 @@ class OutputFormatAudioProcessor(
         }
 
         val outputEncoding = targetEncoding(inputAudioFormat.encoding)
+        val effectiveEncoding = if (clampOutputTo16Bit) C.ENCODING_PCM_16BIT else outputEncoding
         val outputSampleRate = if (settings.sampleRate <= 0) {
             inputAudioFormat.sampleRate
         } else {
@@ -69,7 +78,7 @@ class OutputFormatAudioProcessor(
         targetFormat = AudioProcessor.AudioFormat(
             outputSampleRate,
             inputAudioFormat.channelCount,
-            outputEncoding
+            effectiveEncoding
         )
 
         return if (
