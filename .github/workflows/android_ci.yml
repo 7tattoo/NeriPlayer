@@ -220,8 +220,8 @@ jobs:
         run: |
           ./gradlew :app:assembleRelease \
             -PKEYSTORE_FILE=neri.jks \
-            -PKEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} \
-            -PKEY_ALIAS=key0 \
+            -PKEYSTORE_PASSWORD=${{ secrets.KS_PASS }} \
+            -PKEY_ALIAS=${{ secrets.KEY_ALIAS }} \
             -PKEY_PASSWORD=${{ secrets.KEY_PASSWORD }} \
             --warning-mode all --stacktrace
 
