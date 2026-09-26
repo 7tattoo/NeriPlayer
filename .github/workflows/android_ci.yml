@@ -219,10 +219,10 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: |
           ./gradlew :app:assembleRelease \
-            -PKEYSTORE_FILE=neri.jks \
+            -PKEYSTORE_FILE=app/neri.jks \
             -PKEYSTORE_PASSWORD=${{ secrets.KS_PASS }} \
             -PKEY_ALIAS=${{ secrets.KEY_ALIAS }} \
-            -PKEY_PASSWORD=${{ secrets.KEY_PASSWORD }} \
+            -PKEY_PASSWORD=${{ secrets.KEY_PASS }} \
             --warning-mode all --stacktrace
 
       - name: Upload Release APK

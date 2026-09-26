@@ -60,10 +60,10 @@ jobs:
           ./gradlew clean assembleRelease \
             -PbuildAllReleaseAbis=true \
             -PbuildVersionTimestamp=${{ steps.meta.outputs.release_time }} \
-            -PKEYSTORE_FILE=neri.jks \
+            -PKEYSTORE_FILE=app/neri.jks \
             -PKEYSTORE_PASSWORD=${{ secrets.KS_PASS }} \
             -PKEY_ALIAS=${{ secrets.KEY_ALIAS }} \
-            -PKEY_PASSWORD=${{ secrets.KEY_PASSWORD }} \
+            -PKEY_PASSWORD=${{ secrets.KEY_PASS }} \
             --warning-mode all --stacktrace
 
       - name: Generate release notes
