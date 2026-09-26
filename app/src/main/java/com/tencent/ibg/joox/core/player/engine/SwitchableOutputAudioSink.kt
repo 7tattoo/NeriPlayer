@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.tencent.ibg.joox.core.player.engine
 
 import android.media.AudioDeviceInfo

@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.qing.hachimi.audio
 
 import androidx.media3.common.C
