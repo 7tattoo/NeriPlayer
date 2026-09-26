@@ -1,9 +1,8 @@
-@file:OptIn(androidx.media3.common.util.UnstableApi::class)
-
-@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+@file:androidx.annotation.OptIn(markerClass = [UnstableApi::class])
 
 package com.tencent.ibg.joox.core.player.engine
 
+import androidx.media3.common.util.UnstableApi
 import com.qing.hachimi.audio.EqualizerAudioProcessor
 import com.qing.hachimi.audio.EqualizerSettings
 import com.qing.hachimi.audio.OutputFormatAudioProcessor
